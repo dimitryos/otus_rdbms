@@ -32,7 +32,8 @@ $load_data_dicts = <<-SCRIPT
 SCRIPT
 
 Vagrant.configure("2") do |config|
-    config.vm.box = "mysql8"
+    config.vm.box = "dimitryos/mysql8"
+	config.vm.box_version = "1.1"
   
     config.vm.provider "virtualbox" do |v|
       v.default_nic_type = "Am79C973"
