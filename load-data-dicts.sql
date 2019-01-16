@@ -5,6 +5,13 @@ SET foreign_key_checks=0;
 
 USE trains;
 
+LOAD DATA INFILE '/var/lib/mysql-files/train.txt' 
+INTO TABLE train 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+; 
+
+
 LOAD DATA INFILE '/var/lib/mysql-files/perevozchik.txt' 
 INTO TABLE perevozchik 
 COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
@@ -60,6 +67,7 @@ COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 ;
 
+COMMIT;
  
 /* включаем проверки обратно */
 SET unique_checks=1;
