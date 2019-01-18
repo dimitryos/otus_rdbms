@@ -67,6 +67,55 @@ COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 ;
 
+
+LOAD DATA INFILE '/var/lib/mysql-files/marshrut.txt' 
+INTO TABLE marshrut 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
+LOAD DATA INFILE '/var/lib/mysql-files/marshrut_names.txt' 
+INTO TABLE marshrut_names 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
+LOAD DATA INFILE '/var/lib/mysql-files/passenger.txt' 
+INTO TABLE passenger 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
+LOAD DATA INFILE '/var/lib/mysql-files/sostav_conf.txt' 
+INTO TABLE sostav_conf 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
+LOAD DATA INFILE '/var/lib/mysql-files/sostav_type.txt' 
+INTO TABLE sostav_type 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
+LOAD DATA INFILE '/var/lib/mysql-files/trip.txt' 
+INTO TABLE trip 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
+LOAD DATA INFILE '/var/lib/mysql-files/trip_schedule.txt' 
+INTO TABLE trip_schedule 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
+LOAD DATA INFILE '/var/lib/mysql-files/vagon_conf.txt' 
+INTO TABLE vagon_conf 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
 COMMIT;
  
 /* включаем проверки обратно */

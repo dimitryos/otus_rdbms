@@ -1,15 +1,18 @@
 DROP DATABASE IF EXISTS trains;
 
+CREATE TABLESPACE confident_data 
+ADD DATAFILE 'confident.ibd' 
+ENCRYPTION='Y' ENGINE=InnoDB;
+
 CREATE DATABASE trains 
 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE trains;
 
-
 CREATE TABLE `train` (
   `id_train` smallint unsigned NOT NULL AUTO_INCREMENT COMMENT 'первичный ключ (всего в стране курсируют не более 1000 поездов дальнего следования)',
-  `train_num` varchar(20) CHARACTER SET utf8 NOT NULL COMMENT 'Номер поезда (символьно-цифровая комбинация, достаточно 5 символов)',
-  `train_name` varchar(100) CHARACTER SET utf8 DEFAULT NULL COMMENT 'Фирменное название поезда (достаточно 45 символов, может не существовать)',
+  `train_num` varchar(20) NOT NULL COMMENT 'Номер поезда (символьно-цифровая комбинация, достаточно 5 символов)',
+  `train_name` varchar(100) DEFAULT NULL COMMENT 'Фирменное название поезда (достаточно 45 символов, может не существовать)',
   `description` text COMMENT 'Текстовое описание поезда (размер до 65000 символов, необязательное поле)',
   `rating` float unsigned DEFAULT NULL COMMENT 'Рейтинг поезда по 5-балльной шкале на основе оценок пассажиров, оставивших отзыв (среднее арифметическое оценок)',
   PRIMARY KEY (`id_train`)
@@ -28,6 +31,23 @@ CREATE TABLE `passenger` (
   UNIQUE KEY `email_UNIQUE` (`email`)
 ) 
 ENGINE=InnoDB;
+
+
+CREATE TABLE `passenger_pdata` (
+  `id_passenger` int unsigned NOT NULL AUTO_INCREMENT COMMENT 'FK, id пассажира',
+  `name` varchar(200) NOT NULL COMMENT 'Имя (достаточно 50 символов)',
+  `father_name` varchar(200) DEFAULT NULL COMMENT 'Отчество (необязательное поле, достаточно 50 символов)',
+  `family_name` varchar(200) NOT NULL COMMENT 'Фамилия (достаточно 50 символов)',
+  `gender` enum('М','Ж') NOT NULL COMMENT 'Пол (возможны только два варианта)',
+  `birth_date` date NOT NULL COMMENT 'Дата рождения (обычный тип даты)',
+  `passport` varchar(60) DEFAULT NULL COMMENT 'Номер удостоверения личности (обязательное поле, для большинства удостоверений достаточно 15 символов)',
+  PRIMARY KEY (`id_passenger`),
+  UNIQUE KEY `passport_uq` (`passport`),
+  CONSTRAINT `fk_passenger_id_pdt` FOREIGN KEY (`id_passenger`) REFERENCES `passenger` (`id_passenger`) ON DELETE RESTRICT ON UPDATE CASCADE
+) 
+TABLESPACE confident_data
+ENGINE=InnoDB
+COMMENT='Персональные данные пассажира';
 
 
 CREATE TABLE `perevozchik` (
@@ -210,22 +230,6 @@ ENGINE=InnoDB
 COMMENT='Конфигурация вагонов для заданного типа составов (связь состав-вагон)';
 
 
-/*
-CREATE TABLE `passenger_pdata` (
-  `id_passenger` int unsigned NOT NULL AUTO_INCREMENT COMMENT 'FK, id пассажира',
-  `name` varchar(200) NOT NULL COMMENT 'Имя (достаточно 50 символов)',
-  `father_name` varchar(200) DEFAULT NULL COMMENT 'Отчество (необязательное поле, достаточно 50 символов)',
-  `family_name` varchar(200) NOT NULL COMMENT 'Фамилия (достаточно 50 символов)',
-  `gender` enum('М','Ж') NOT NULL COMMENT 'Пол (возможны только два варианта)',
-  `birth_date` date NOT NULL COMMENT 'Дата рождения (обычный тип даты)',
-  `passport` varchar(60) DEFAULT NULL COMMENT 'Номер удостоверения личности (обязательное поле, для большинства удостоверений достаточно 15 символов)',
-  PRIMARY KEY (`id_passenger`),
-  UNIQUE KEY `passport_uq` (`passport`),
-  CONSTRAINT `fk_passenger_id_pdt` FOREIGN KEY (`id_passenger`) REFERENCES `passenger` (`id_passenger`) ON DELETE RESTRICT ON UPDATE CASCADE
-) /*!50100 TABLESPACE `dsp_data` */ 
-ENGINE=InnoDB;
-*/
-
 CREATE TABLE `ticket_order` (
   `id_ticket_order` int unsigned NOT NULL AUTO_INCREMENT,
   `id_passenger` int unsigned NOT NULL,
@@ -258,6 +262,7 @@ ENGINE=InnoDB
 COMMENT='Отражает факт начала движения по заданному маршруту на определённую дату.\nЯвляется основой для генерации записей таблицы расширенного расписания по станциям.\nТакже к определенному маршруту привязывается заказ билета.'
 ;
 
+
 CREATE TABLE `trip_schedule` (
   `id_trip_station` int unsigned NOT NULL AUTO_INCREMENT,
   `id_trip` int unsigned NOT NULL COMMENT 'FK, id поездки к которой относится данные',
@@ -278,16 +283,17 @@ CREATE TABLE `trip_seats` (
   `id_trip` int unsigned NOT NULL,
   `id_station` smallint unsigned NOT NULL,
   `vagon_ord_num` tinyint unsigned NOT NULL,
-  `seat_num` tinyint unsigned NOT NULL,
   `coupe_num` tinyint unsigned DEFAULT NULL,
-  `is_reserved` tinyint unsigned NOT NULL DEFAULT '0',
+  `seat_num` tinyint unsigned NOT NULL,
   `gender_constraints` tinyint unsigned DEFAULT NULL,
   `gender_constraints_vc` tinyint unsigned DEFAULT NULL,
+  `id_ticket_order` int unsigned DEFAULT NULL,
   
   INDEX `idx_trip_station` (`id_trip`,`id_station`)
 ) 
 ENGINE=InnoDB 
-COMMENT='Расклад по местам для заданной поездки';
+COMMENT='Расклад по местам для заданной поездки (партиционирование по хэшу id поездки для уменьшения времени поиска данных по заданной поездке)'
+PARTITION BY HASH(id_trip);
 
 
 CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `marshruts_v` AS select `mn`.`marshrut_name` AS `marshrut_name`,`m`.`order_number` AS `order_number`,`s`.`station_name` AS `station_name`,`s`.`id_railway` AS `id_railway`,`m`.`arrive_time` AS `arrive_time`,`m`.`stop_time` AS `stop_time`,`m`.`departure_time` AS `departure_time`,`m`.`km_from_start` AS `km_from_start`,`m`.`reach_time` AS `reach_time`,`st`.`sostav_name` AS `sostav_name` from (((`marshrut` `m` join `marshrut_names` `mn` on((`m`.`id_marshrut` = `mn`.`id_marshrut`))) join `station` `s` on((`m`.`id_station` = `s`.`id_station`))) join `sostav_type` `st` on((`m`.`id_sostav_type` = `st`.`id_sostav_type`))) order by `m`.`id_marshrut`,`m`.`order_number`;
