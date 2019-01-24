@@ -1,5 +1,27 @@
 delimiter ;;
 
+drop function if exists route_length;
+
+create function route_length(
+    _id_marshrut smallint unsigned, 
+    _id_station_a smallint unsigned, 
+    _id_station_b smallint unsigned
+)
+COMMENT 'Вычисляет расстояние между станциями _id_station_a и _id_station_b, находящимися на маршруте _id_marshrut'
+returns smallint
+reads sql data
+begin
+    declare km_a smallint unsigned;
+    declare km_b smallint unsigned;
+    
+    select km_from_start from marshrut where id_marshrut = _id_marshrut and id_station = _id_station_a into km_a;
+    select km_from_start from marshrut where id_marshrut = _id_marshrut and id_station = _id_station_b into km_b;
+    
+    return (km_b - km_a);
+end
+;;
+
+
 DROP PROCEDURE if EXISTS get_marshrut_info;
 
 CREATE PROCEDURE get_marshrut_info(
@@ -125,17 +147,21 @@ DROP PROCEDURE if EXISTS basic_vagon_prices;
 CREATE PROCEDURE basic_vagon_prices(
 	IN _id_trip INT UNSIGNED,
 	IN _id_station_a SMALLINT UNSIGNED,
-	IN _route_length SMALLINT UNSIGNED
+	IN _id_station_b SMALLINT UNSIGNED
 )
 COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
 READS SQL DATA
 BEGIN
+    declare _id_marshrut smallint unsigned;
+    
+    select id_marshrut from trip where id_trip = _id_trip into _id_marshrut;
+    
     select
         name_vagon_category, 
         sum(is_invalid) as has_invalid_seats,
         sum(if(id_vagon_type=29, 1, 0)) as has_heavy_luggage_coupe,
         count(*) as vacant_seats_total, 
-        min(round(price_basic*k*_route_length)) as price_vagon_itog
+        min(round(price_basic*k*route_length(_id_marshrut, _id_station_a, _id_station_b))) as price_vagon_itog
     from 
         trip_seats as trs
         inner join trip as tr using(id_trip)

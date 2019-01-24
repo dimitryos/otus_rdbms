@@ -1,9 +1,5 @@
 DROP DATABASE IF EXISTS trains;
 
-CREATE TABLESPACE confident_data 
-ADD DATAFILE 'confident.ibd' 
-ENCRYPTION='Y' ENGINE=InnoDB;
-
 CREATE DATABASE trains 
 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -297,25 +293,40 @@ COMMENT='Расклад по местам для заданной поездки
 PARTITION BY HASH(id_trip);
 
 
-CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `marshruts_v` AS select `mn`.`marshrut_name` AS `marshrut_name`,`m`.`order_number` AS `order_number`,`s`.`station_name` AS `station_name`,`s`.`id_railway` AS `id_railway`,`m`.`arrive_time` AS `arrive_time`,`m`.`stop_time` AS `stop_time`,`m`.`departure_time` AS `departure_time`,`m`.`km_from_start` AS `km_from_start`,`m`.`reach_time` AS `reach_time`,`st`.`sostav_name` AS `sostav_name` from (((`marshrut` `m` join `marshrut_names` `mn` on((`m`.`id_marshrut` = `mn`.`id_marshrut`))) join `station` `s` on((`m`.`id_station` = `s`.`id_station`))) join `sostav_type` `st` on((`m`.`id_sostav_type` = `st`.`id_sostav_type`))) order by `m`.`id_marshrut`,`m`.`order_number`;
-CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `trip_seats_v` AS select `tr`.`id_trip` AS `id_trip`,`t`.`train_num` AS `train_num`,`m`.`id_station` AS `id_station`,`s`.`station_name` AS `station_name`,`m`.`order_number` AS `order_number`,date_format(`ts`.`arrive_dt`,'%d.%m.%Y  %H:%i') AS `arrive_dt`,date_format(`m`.`stop_time`,'%H:%i') AS `stop_time`,date_format(`ts`.`departure_dt`,'%d.%m.%Y  %H:%i') AS `departure_dt`,`m`.`km_from_start` AS `km_from_start`,cast(`sc`.`vagon_ord_num` as unsigned) AS `vagon_ord_num`,`sc`.`id_vagon_type` AS `id_vagon_type`,`vcat`.`name_vagon_category` AS `name_vagon_category`,`p`.`name` AS `name`,`sc`.`id_service_class` AS `id_service_class`,`srv`.`service_class_code` AS `service_class_code`,`vc`.`coupe_num` AS `coupe_num`,`vc`.`seat_num` AS `seat_num`,`vc`.`is_upper` AS `is_upper`,`sc`.`price_basic` AS `price_basic`,`vc`.`k` AS `k` from (((((((((((`trip` `tr` join `marshrut_names` `mn` on((`tr`.`id_marshrut` = `mn`.`id_marshrut`))) join `train` `t` on((`mn`.`id_train` = `t`.`id_train`))) join `marshrut` `m` on((`mn`.`id_marshrut` = `m`.`id_marshrut`))) join `trip_schedule` `ts` on(((`tr`.`id_trip` = `ts`.`id_trip`) and (`m`.`id_station` = `ts`.`id_station`)))) join `station` `s` on((`ts`.`id_station` = `s`.`id_station`))) join `sostav_conf` `sc` on((`m`.`id_sostav_type` = `sc`.`id_sostav_type`))) join `service_class` `srv` on((`sc`.`id_service_class` = `srv`.`id_service_class`))) join `vagon_conf` `vc` on((`sc`.`id_vagon_type` = `vc`.`id_vagon_type`))) join `vagon_type` `vt` on((`vc`.`id_vagon_type` = `vt`.`id_vagon_type`))) join `vagon_category` `vcat` on((`vt`.`id_vagon_category` = `vcat`.`id_vagon_category`))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`))) order by `tr`.`id_trip`,`m`.`order_number`,cast(`sc`.`vagon_ord_num` as unsigned),`vc`.`coupe_num`,`vc`.`seat_num`;
-CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `vagon_service_classes_v` AS select `p`.`name` AS `NAME`,`vt`.`id_vagon_type` AS `id_vagon_type`,`vt`.`vagon_type_name` AS `vagon_type_name`,`vt`.`id_vagon_category` AS `id_vagon_category`,`sc`.`id_service_class` AS `id_service_class`,`sc`.`service_class_code` AS `service_class_code` from ((`vagon_type` `vt` join `service_class` `sc` on(((`vt`.`id_perevozchik` = `sc`.`id_perevozchik`) and (`vt`.`id_vagon_category` = `sc`.`id_vagon_category`)))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`)));
-CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `sostav_confs_v` AS select `st`.`sostav_name` AS `sostav_name`,`st`.`description` AS `sostav_descr`,cast(`sc`.`vagon_ord_num` as unsigned) AS `vagon_num`,`vt`.`vagon_type_name` AS `vagon_type_name`,`p`.`name` AS `perevozchik`,`srv`.`service_class_code` AS `service_class_code` from ((((`sostav_conf` `sc` join `sostav_type` `st` on((`sc`.`id_sostav_type` = `st`.`id_sostav_type`))) join `vagon_type` `vt` on((`sc`.`id_vagon_type` = `vt`.`id_vagon_type`))) join `service_class` `srv` on((`sc`.`id_service_class` = `srv`.`id_service_class`))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`))) order by `st`.`sostav_name`,cast(`sc`.`vagon_ord_num` as unsigned);
-
-CREATE ALGORITHM=TEMPTABLE VIEW v_marshrut_sostav_info AS 
+CREATE TABLE marshrut_confs (
+    id_marshrut SMALLINT UNSIGNED, 
+    vagon_ord_num TINYINT UNSIGNED, 
+    id_vagon_category TINYINT UNSIGNED, 
+    name_vagon_category varchar(120), 
+    id_vagon_type TINYINT UNSIGNED, 
+    id_perevozchik TINYINT UNSIGNED, 
+    perevozchik_name varchar(120), 
+    coupe_num TINYINT UNSIGNED, 
+    seat_num TINYINT UNSIGNED, 
+    seat_placement varchar(100), 
+    is_invalid TINYINT UNSIGNED, 
+    gender_constraints TINYINT UNSIGNED, 
+    id_service_class TINYINT UNSIGNED, 
+    service_class_code varchar(80), 
+    price_basic DECIMAL(5,3) UNSIGNED, 
+    k DECIMAL(4,3)
+)
+ENGINE=MEMORY
 select distinct
     id_marshrut, 
-    vcat.id_vagon_category, 
-    sc.id_vagon_type, 
-    p.`name` as perevozchik_name,
     vagon_ord_num, 
+    vcat.id_vagon_category, 
+    vcat.name_vagon_category, 
+    sc.id_vagon_type, 
+    p.id_perevozchik,
+    p.`name` as perevozchik_name,
     coupe_num, 
     seat_num, 
-    is_upper, 
+    seat_placement, 
     is_invalid, 
     gender_constraints, 
     srvc.id_service_class, 
-    srvc.service_class_code,
+    srvc.service_class_code, 
     price_basic, 
     k
 from 
@@ -324,6 +335,26 @@ from
     inner join vagon_conf as vc on (sc.id_vagon_type=vc.id_vagon_type)
     inner join vagon_type as vt on (vc.id_vagon_type=vt.id_vagon_type)
     inner join vagon_category as vcat using(id_vagon_category)
-    INNER JOIN service_class AS srvc ON sc.id_service_class=srvc.id_service_class
+    inner join service_class AS srvc ON sc.id_service_class=srvc.id_service_class
     inner join perevozchik as p ON vt.id_perevozchik=p.id_perevozchik
 ;
+
+CREATE INDEX idx_id_marshrut_mc ON marshrut_confs (id_marshrut, vagon_ord_num, seat_num) USING BTREE;
+
+
+/**
+ * Справочная вьюшка, чтобы узнать о порядке, названии и id станций всех маршрутов
+ */
+create algorithm=merge definer=`admin`@`%` sql security definer view v_marhrut_info as
+select 
+    id_marshrut, order_number, m.id_station, station_name
+from 
+    marshrut as m inner join station as s using(id_station)
+order by 
+    id_marshrut, order_number
+;
+
+-- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `marshruts_v` AS select `mn`.`marshrut_name` AS `marshrut_name`,`m`.`order_number` AS `order_number`,`s`.`station_name` AS `station_name`,`s`.`id_railway` AS `id_railway`,`m`.`arrive_time` AS `arrive_time`,`m`.`stop_time` AS `stop_time`,`m`.`departure_time` AS `departure_time`,`m`.`km_from_start` AS `km_from_start`,`m`.`reach_time` AS `reach_time`,`st`.`sostav_name` AS `sostav_name` from (((`marshrut` `m` join `marshrut_names` `mn` on((`m`.`id_marshrut` = `mn`.`id_marshrut`))) join `station` `s` on((`m`.`id_station` = `s`.`id_station`))) join `sostav_type` `st` on((`m`.`id_sostav_type` = `st`.`id_sostav_type`))) order by `m`.`id_marshrut`,`m`.`order_number`;
+-- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `trip_seats_v` AS select `tr`.`id_trip` AS `id_trip`,`t`.`train_num` AS `train_num`,`m`.`id_station` AS `id_station`,`s`.`station_name` AS `station_name`,`m`.`order_number` AS `order_number`,date_format(`ts`.`arrive_dt`,'%d.%m.%Y  %H:%i') AS `arrive_dt`,date_format(`m`.`stop_time`,'%H:%i') AS `stop_time`,date_format(`ts`.`departure_dt`,'%d.%m.%Y  %H:%i') AS `departure_dt`,`m`.`km_from_start` AS `km_from_start`,cast(`sc`.`vagon_ord_num` as unsigned) AS `vagon_ord_num`,`sc`.`id_vagon_type` AS `id_vagon_type`,`vcat`.`name_vagon_category` AS `name_vagon_category`,`p`.`name` AS `name`,`sc`.`id_service_class` AS `id_service_class`,`srv`.`service_class_code` AS `service_class_code`,`vc`.`coupe_num` AS `coupe_num`,`vc`.`seat_num` AS `seat_num`,`vc`.`is_upper` AS `is_upper`,`sc`.`price_basic` AS `price_basic`,`vc`.`k` AS `k` from (((((((((((`trip` `tr` join `marshrut_names` `mn` on((`tr`.`id_marshrut` = `mn`.`id_marshrut`))) join `train` `t` on((`mn`.`id_train` = `t`.`id_train`))) join `marshrut` `m` on((`mn`.`id_marshrut` = `m`.`id_marshrut`))) join `trip_schedule` `ts` on(((`tr`.`id_trip` = `ts`.`id_trip`) and (`m`.`id_station` = `ts`.`id_station`)))) join `station` `s` on((`ts`.`id_station` = `s`.`id_station`))) join `sostav_conf` `sc` on((`m`.`id_sostav_type` = `sc`.`id_sostav_type`))) join `service_class` `srv` on((`sc`.`id_service_class` = `srv`.`id_service_class`))) join `vagon_conf` `vc` on((`sc`.`id_vagon_type` = `vc`.`id_vagon_type`))) join `vagon_type` `vt` on((`vc`.`id_vagon_type` = `vt`.`id_vagon_type`))) join `vagon_category` `vcat` on((`vt`.`id_vagon_category` = `vcat`.`id_vagon_category`))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`))) order by `tr`.`id_trip`,`m`.`order_number`,cast(`sc`.`vagon_ord_num` as unsigned),`vc`.`coupe_num`,`vc`.`seat_num`;
+-- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `vagon_service_classes_v` AS select `p`.`name` AS `NAME`,`vt`.`id_vagon_type` AS `id_vagon_type`,`vt`.`vagon_type_name` AS `vagon_type_name`,`vt`.`id_vagon_category` AS `id_vagon_category`,`sc`.`id_service_class` AS `id_service_class`,`sc`.`service_class_code` AS `service_class_code` from ((`vagon_type` `vt` join `service_class` `sc` on(((`vt`.`id_perevozchik` = `sc`.`id_perevozchik`) and (`vt`.`id_vagon_category` = `sc`.`id_vagon_category`)))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`)));
+-- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `sostav_confs_v` AS select `st`.`sostav_name` AS `sostav_name`,`st`.`description` AS `sostav_descr`,cast(`sc`.`vagon_ord_num` as unsigned) AS `vagon_num`,`vt`.`vagon_type_name` AS `vagon_type_name`,`p`.`name` AS `perevozchik`,`srv`.`service_class_code` AS `service_class_code` from ((((`sostav_conf` `sc` join `sostav_type` `st` on((`sc`.`id_sostav_type` = `st`.`id_sostav_type`))) join `vagon_type` `vt` on((`sc`.`id_vagon_type` = `vt`.`id_vagon_type`))) join `service_class` `srv` on((`sc`.`id_service_class` = `srv`.`id_service_class`))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`))) order by `st`.`sostav_name`,cast(`sc`.`vagon_ord_num` as unsigned);

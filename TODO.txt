@@ -1,0 +1,5 @@
+Пересмотреть генерацию vagon_conf.k;
+
+Убрать лишние колонки из vagon_conf;
+
+Проверить работу call basic_vagon_prices() в связи с добавлением функции route_length.
