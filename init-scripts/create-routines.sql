@@ -149,7 +149,7 @@ CREATE PROCEDURE basic_vagon_prices(
 	IN _id_station_a SMALLINT UNSIGNED,
 	IN _id_station_b SMALLINT UNSIGNED
 )
-COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
+COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутствующей информации (версия для движка MEMORY)'
 READS SQL DATA
 BEGIN
     declare _id_marshrut smallint unsigned;
@@ -170,6 +170,78 @@ BEGIN
         trs.id_trip=_id_trip and trs.id_station=_id_station_a and id_ticket_order is null
     group by
         id_vagon_category
+    ;
+END 
+;;
+
+
+DROP PROCEDURE if EXISTS basic_vagon_prices_v;
+
+CREATE PROCEDURE basic_vagon_prices_v(
+	IN _id_trip INT UNSIGNED,
+	IN _id_station_a SMALLINT UNSIGNED,
+	IN _id_station_b SMALLINT UNSIGNED
+)
+COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутсвующей информации (версия на вьюшке)'
+READS SQL DATA
+BEGIN
+    declare _id_marshrut smallint unsigned;
+    
+    select id_marshrut from trip where id_trip = _id_trip into _id_marshrut;
+    
+    select
+        any_value(name_vagon_category) as name_vagon_category, 
+        sum(is_invalid) as has_invalid_seats,
+        sum(if(mc.id_vagon_type=29, 1, 0)) as has_heavy_luggage_coupe,
+        count(*) as vacant_seats_total, 
+        min(round(price_basic*k*route_length(_id_marshrut, _id_station_a, _id_station_b))) as price_vagon_itog
+    from 
+        trip_seats as trs
+        inner join trip as tr using(id_trip)
+        inner join v_marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+    where 
+        trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.id_ticket_order is null 
+    group by
+        mc.id_vagon_category
+    ;
+END 
+;;
+
+
+DROP PROCEDURE if EXISTS basic_vagon_prices_j;
+
+CREATE PROCEDURE basic_vagon_prices_j(
+	IN _id_trip INT UNSIGNED,
+	IN _id_station_a SMALLINT UNSIGNED,
+	IN _id_station_b SMALLINT UNSIGNED
+)
+COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутствующей информации (версия на джойнах)'
+READS SQL DATA
+BEGIN
+    declare _id_marshrut smallint unsigned;
+    
+    select id_marshrut from trip where id_trip = _id_trip into _id_marshrut;
+    
+    select
+        any_value(name_vagon_category) as name_vagon_category, 
+        sum(is_invalid) as has_invalid_seats,
+        sum(if(vc.id_vagon_type=29, 1, 0)) as has_heavy_luggage_coupe,
+        count(*) as vacant_seats_total, 
+        min(round(price_basic*k*route_length(_id_marshrut, _id_station_a, _id_station_b))) as price_vagon_itog
+    from 
+        trip_seats as trs
+        inner join trip as tr using(id_trip)
+        inner join marshrut as m on (tr.id_marshrut = m.id_marshrut)
+        inner join sostav_conf as sc on (m.id_sostav_type = sc.id_sostav_type and trs.vagon_ord_num = sc.vagon_ord_num)
+        inner join vagon_conf as vc on (sc.id_vagon_type=vc.id_vagon_type and trs.seat_num = vc.seat_num)
+        inner join vagon_type as vt on (vc.id_vagon_type=vt.id_vagon_type)
+        inner join vagon_category as vcat using(id_vagon_category)
+        inner join service_class AS srvc on sc.id_service_class=srvc.id_service_class
+        inner join perevozchik as p on vt.id_perevozchik=p.id_perevozchik
+    where 
+        trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.id_ticket_order is null 
+    group by
+        vt.id_vagon_category
     ;
 END 
 ;;

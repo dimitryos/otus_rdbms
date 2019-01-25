@@ -21,9 +21,9 @@ where
 group by     vagon_ord_num, seat_placement
 ;
 */
-
+/*
 ALTER TABLE `vagon_conf` 
-ADD COLUMN `seat_placement2` tinyint unsigned
+ADD COLUMN `seat_placement` tinyint unsigned
 GENERATED ALWAYS AS (
    case
         when ((`id_vagon_type` = 15) and (`seat_num` = 37)) then 5
@@ -38,3 +38,21 @@ GENERATED ALWAYS AS (
 VIRTUAL
 AFTER `coupe_num`
 ;
+*/
+ALTER TABLE `vagon_conf` 
+add COLUMN `k` decimal(4,3) unsigned
+GENERATED ALWAYS AS (
+   case 
+    when (`is_invalid` = 1) then 0.5 
+    when (`seat_placement` = 2) then 0.85 
+    when (`seat_placement` = 3) then 0.85 
+    when (`seat_placement` = 4) then 0.75 
+    when (`seat_placement` = 5) then 0.9 
+    when (`seat_placement` = 6) then 0.9 
+    when (`seat_placement` = 7) then 0.9 
+    else 1.0 end
+) 
+VIRTUAL
+AFTER `is_invalid`
+;
+

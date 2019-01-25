@@ -1,10 +1,8 @@
 
-# !!! В новом боксе добавить в /etc/mysql/my.cnf include /vagrant/*.cnf !!!
-
 $create_tablespace = <<-SCRIPT
     echo 'Создаём табличное пространство для хранения персональных данных...'
     if [[ ! -f /var/lib/mysql/confident.ibd ]]; then
-        cd /vagrant
+        cd /vagrant/init-scripts
         mysql -u root -proot < create-tablespace.sql
     fi
     echo Готово.
@@ -12,14 +10,14 @@ SCRIPT
 
 $create_schema = <<-SCRIPT
     echo 'Создаём схему базы данных trains...'
-    cd /vagrant
+    cd /vagrant/init-scripts
     mysql -u root -proot < create-schema.sql
     echo Готово.
 SCRIPT
 
 $create_user = <<-SCRIPT
     echo 'Создаём регулярного пользователя admin...'
-    cd /vagrant
+    cd /vagrant/init-scripts
     mysql -u root -proot < create-users.sql
     echo Готово.
 SCRIPT
@@ -37,15 +35,25 @@ SCRIPT
 
 $load_table_data = <<-SCRIPT
     echo 'Загружаем рабочие данные...'
-    cd /vagrant
+    cd /vagrant/init-scripts
     mysql -u root -proot < load-table-data.sql
     echo Готово.
 SCRIPT
 
 $load_trip_seats = <<-SCRIPT
     echo 'Загружаем данные по местам для поездок в таблицу trip_seats (процесс может занимать 15-20 минут)...'
-    cd /vagrant
+    cd /vagrant/init-scripts
     mysql -u root -proot < load-trip-seats.sql
+    echo Готово.
+SCRIPT
+
+$create_marshrut_confs = <<-SCRIPT
+    echo 'Создаём и наполняем данными таблицу marshrut_confs'
+    cd /vagrant/init-scripts
+    mysql -u root -proot < init-marshrut-confs.sql
+    echo 'Добавляем в конфигурацию сервера mysql путь к файлу автозапуска с кодом инициализации таблицы marshrut_confs при последующих перезапусках сервера'
+    cp -f init-file.sql /home/vagrant/
+    sudo sed -i -e '$a init-file = /home/vagrant/init-file.sql' /etc/mysql/mysql.conf.d/trains_db.cnf
     echo Готово.
 SCRIPT
 
@@ -67,5 +75,6 @@ Vagrant.configure("2") do |config|
     config.vm.provision "shell", inline: $create_user
     config.vm.provision "shell", inline: $unpack_table_data
     config.vm.provision "shell", inline: $load_table_data
+    config.vm.provision "shell", inline: $create_marshrut_confs
     config.vm.provision "shell", inline: $load_trip_seats
 end

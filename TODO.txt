@@ -1,7 +1,9 @@
-Пересмотреть генерацию vagon_conf.k
+Пересмотреть генерацию vagon_conf.k (+) повторить дома
 
-Убрать лишние колонки из vagon_conf
+Убрать лишние колонки из vagon_conf (+) повторить дома
 
-Проверить работу call basic_vagon_prices() в связи с добавлением функции route_length.
+Проверить работу call basic_vagon_prices() в связи с добавлением функции route_length. (+)
 
-В новом боксе добавить в /etc/mysql/my.cnf include /vagrant/*.cnf
+В новом боксе скопировать /vagrant/trains_db.cnf в /etc/mysql/mysqld.conf.d  
+
+Исправить ситуацию с init-file.sql (?)

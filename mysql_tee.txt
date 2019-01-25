@@ -1,0 +1,22 @@
+mysql> show create table vagon_conf\G
+*************************** 1. row ***************************
+       Table: vagon_conf
+Create Table: CREATE TABLE `vagon_conf` (
+  `id_vagon_type` tinyint(3) unsigned NOT NULL COMMENT 'сост. PK, тип вагона (тж. FK)',
+  `seat_num` tinyint(3) unsigned NOT NULL COMMENT 'сост. PK, номер места в вагоне (не более 125)',
+  `coupe_num` tinyint(3) unsigned DEFAULT NULL COMMENT 'номер купе',
+  `seat_placement2` tinyint(3) unsigned GENERATED ALWAYS AS ((case when ((`id_vagon_type` = 15) and (`seat_num` = 37)) then 5 when ((`id_vagon_type` = 15) and (`seat_num` between 38 and 51) and ((`seat_num` % 2) = 0)) then 4 when ((`id_vagon_type` = 15) and (`seat_num` between 39 and 51) and ((`seat_num` % 2) <> 0)) then 3 when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) = 0)) then 7 when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) <> 0)) then 6 when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) = 0)) then 2 when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) <> 0)) then 1 end)) VIRTUAL,
+  `seat_placement` varchar(100) COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case when ((`id_vagon_type` = 15) and (`seat_num` = 37)) then _utf8mb4'Боковое нижнее у туалета' when ((`id_vagon_type` = 15) and (`seat_num` between 38 and 51) and ((`seat_num` % 2) = 0)) then _utf8mb4'Боковое верхнее' when ((`id_vagon_type` = 15) and (`seat_num` between 39 and 51) and ((`seat_num` % 2) <> 0)) then _utf8mb4'Боковое нижнее' when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) = 0)) then _utf8mb4'Последнее купе верхнее' when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) <> 0)) then _utf8mb4'Последнее купе нижнее' when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) = 0)) then _utf8mb4'Верхнее' when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) <> 0)) then _utf8mb4'Нижнее' end)) VIRTUAL,
+  `is_upper` tinyint(4) GENERATED ALWAYS AS (if(((`id_vagon_type` in (3,4,12,13,14,15,17,29,30)) and ((`seat_num` % 2) = 0)),1,0)) VIRTUAL,
+  `is_side` tinyint(4) GENERATED ALWAYS AS (if(((`id_vagon_type` in (4,15)) and (`seat_num` between 37 and 54)),1,0)) VIRTUAL,
+  `is_last_coupe` tinyint(4) GENERATED ALWAYS AS (if(((`id_vagon_type` = 15) and (`seat_num` between 33 and 36)),1,0)) VIRTUAL,
+  `is_by_wc` tinyint(4) GENERATED ALWAYS AS (if(((`id_vagon_type` = 15) and (`seat_num` between 37 and 38)),1,0)) VIRTUAL,
+  `is_invalid` tinyint(4) NOT NULL DEFAULT '0' COMMENT 'признак места, предназначеного для инвалидов',
+  `gender_constraints` tinyint(4) NOT NULL DEFAULT '0' COMMENT 'правило определения возможности забронировать место в данном купе в зависимости от пола пассажира: 0 - без различия, 1 - будет определяться динамически полом первого пассажира в данном купе, 2 - мужчины, 3 - женщины.',
+  `k` decimal(4,3) GENERATED ALWAYS AS ((case when ((`id_vagon_type` = 3) and (`is_upper` = 1)) then 0.8 when (`is_invalid` = 1) then 0.5 when ((`id_vagon_type` = 15) and (`is_upper` = 1)) then 0.95 when ((`id_vagon_type` = 15) and (`is_side` = 1) and (`is_upper` = 0)) then 0.95 when ((`is_by_wc` = 1) and (`is_upper` = 0)) then 0.91 when ((`is_last_coupe` = 1) and (`is_upper` = 0)) then 0.91 when ((`is_last_coupe` = 1) and (`is_upper` = 1)) then 0.91 else 1.0 end)) VIRTUAL,
+  PRIMARY KEY (`id_vagon_type`,`seat_num`),
+  CONSTRAINT `fk_vagon_type_vc` FOREIGN KEY (`id_vagon_type`) REFERENCES `vagon_type` (`id_vagon_type`) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Конфигурация мест в вагоне заданного типа'
+1 row in set (0,00 sec)
+
+mysql> \t

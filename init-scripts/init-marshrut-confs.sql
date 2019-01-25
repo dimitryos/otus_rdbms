@@ -1,6 +1,4 @@
 
-set max_heap_table_size = 17999872;
-
 use trains;
 
 drop table if exists marshrut_confs;
