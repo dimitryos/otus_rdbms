@@ -14,6 +14,3 @@ early-plugin-load = keyring_file.so
 
 # устанавливаем директорию для хранения файлов рабочих данных таблиц
 secure_file_priv = /var/lib/mysql-files
-
-# заполняем данными таблицу marshrut_confs на движке MEMORY при старте сервера
-init-file = /vagrant/init-file.sql

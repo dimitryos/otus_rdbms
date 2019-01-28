@@ -38,7 +38,7 @@ GENERATED ALWAYS AS (
 VIRTUAL
 AFTER `coupe_num`
 ;
-*/
+
 ALTER TABLE `vagon_conf` 
 add COLUMN `k` decimal(4,3) unsigned
 GENERATED ALWAYS AS (
@@ -55,4 +55,24 @@ GENERATED ALWAYS AS (
 VIRTUAL
 AFTER `is_invalid`
 ;
+*/
 
+create table seat_placement (
+    `id_seat_placement` tinyint unsigned not null,
+	`name_seat_placement` varchar(120),
+	
+	primary key (`id_seat_placement`)
+) 
+comment 'Справочник вариантов расположения места в вагоне'
+engine=innodb
+;
+
+insert into seat_placement values 
+(1, 'Нижнее'),
+(2, 'Верхнее'),
+(3, 'Нижнее боковое'),
+(4, 'Верхнее боковое'),
+(5, 'Нижнее боковое у туалета'),
+(6, 'Последнее купе, нижнее'),
+(7, 'Последнее купе, верхнее')
+;

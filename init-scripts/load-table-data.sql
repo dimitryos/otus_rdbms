@@ -114,6 +114,7 @@ LOAD DATA INFILE '/var/lib/mysql-files/vagon_conf.txt'
 INTO TABLE vagon_conf 
 COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
+(id_vagon_type, seat_num, coupe_num, is_invalid, gender_constraints, k)
 ;
 
 COMMIT;

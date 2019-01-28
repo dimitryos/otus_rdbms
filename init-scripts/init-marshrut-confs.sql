@@ -13,7 +13,8 @@ CREATE TABLE marshrut_confs (
     perevozchik_name varchar(120), 
     coupe_num TINYINT UNSIGNED, 
     seat_num TINYINT UNSIGNED, 
-    seat_placement varchar(100), 
+    id_seat_placement TINYINT UNSIGNED, 
+    name_seat_placement varchar(120), 
     is_invalid TINYINT UNSIGNED, 
     gender_constraints TINYINT UNSIGNED, 
     id_service_class TINYINT UNSIGNED, 
@@ -32,7 +33,8 @@ select distinct
     p.`name` as perevozchik_name,
     coupe_num, 
     seat_num, 
-    seat_placement, 
+    vc.id_seat_placement, 
+	name_seat_placement,
     is_invalid, 
     gender_constraints, 
     srvc.id_service_class, 
@@ -47,6 +49,7 @@ from
     inner join vagon_category as vcat using(id_vagon_category)
     inner join service_class AS srvc ON sc.id_service_class=srvc.id_service_class
     inner join perevozchik as p ON vt.id_perevozchik=p.id_perevozchik
+	left join seat_placement as sp using(id_seat_placement)
 ;
 
 CREATE INDEX idx_id_marshrut_mc ON marshrut_confs (id_marshrut, vagon_ord_num, seat_num) USING BTREE;

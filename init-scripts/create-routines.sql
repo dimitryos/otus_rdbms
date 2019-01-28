@@ -1,3 +1,5 @@
+use trains;
+
 delimiter ;;
 
 drop function if exists route_length;
@@ -7,9 +9,9 @@ create function route_length(
     _id_station_a smallint unsigned, 
     _id_station_b smallint unsigned
 )
-COMMENT 'Вычисляет расстояние между станциями _id_station_a и _id_station_b, находящимися на маршруте _id_marshrut'
 returns smallint
 reads sql data
+COMMENT 'Вычисляет расстояние между станциями _id_station_a и _id_station_b, находящимися на маршруте _id_marshrut'
 begin
     declare km_a smallint unsigned;
     declare km_b smallint unsigned;
@@ -27,8 +29,8 @@ DROP PROCEDURE if EXISTS get_marshrut_info;
 CREATE PROCEDURE get_marshrut_info(
 	IN _id_trip INT UNSIGNED
 )
-COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
 READS SQL DATA
+COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
 BEGIN
     SELECT 
         station_name, 
@@ -56,8 +58,8 @@ CREATE PROCEDURE get_train_variants_info(
 	IN _id_station_b SMALLINT UNSIGNED,
 	IN _date_trip DATE 
 )
-COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
 READS SQL DATA
+COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
 BEGIN
 	WITH mrsh_cte AS (
 		/* 
@@ -149,8 +151,8 @@ CREATE PROCEDURE basic_vagon_prices(
 	IN _id_station_a SMALLINT UNSIGNED,
 	IN _id_station_b SMALLINT UNSIGNED
 )
-COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутствующей информации (версия для движка MEMORY)'
 READS SQL DATA
+COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутствующей информации (версия для движка MEMORY)'
 BEGIN
     declare _id_marshrut smallint unsigned;
     
@@ -182,8 +184,8 @@ CREATE PROCEDURE basic_vagon_prices_v(
 	IN _id_station_a SMALLINT UNSIGNED,
 	IN _id_station_b SMALLINT UNSIGNED
 )
-COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутсвующей информации (версия на вьюшке)'
 READS SQL DATA
+COMMENT 'версия на вьюшке'
 BEGIN
     declare _id_marshrut smallint unsigned;
     
@@ -215,8 +217,8 @@ CREATE PROCEDURE basic_vagon_prices_j(
 	IN _id_station_a SMALLINT UNSIGNED,
 	IN _id_station_b SMALLINT UNSIGNED
 )
-COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутствующей информации (версия на джойнах)'
 READS SQL DATA
+COMMENT 'версия на вьюшке'
 BEGIN
     declare _id_marshrut smallint unsigned;
     

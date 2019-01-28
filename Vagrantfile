@@ -15,6 +15,13 @@ $create_schema = <<-SCRIPT
     echo Готово.
 SCRIPT
 
+$create_routines = <<-SCRIPT
+    echo 'Создаём хранимые процедуры...'
+    cd /vagrant/init-scripts
+    mysql -u root -proot < create-routines.sql
+    echo Готово.
+SCRIPT
+
 $create_user = <<-SCRIPT
     echo 'Создаём регулярного пользователя admin...'
     cd /vagrant/init-scripts
@@ -51,15 +58,20 @@ $create_marshrut_confs = <<-SCRIPT
     echo 'Создаём и наполняем данными таблицу marshrut_confs'
     cd /vagrant/init-scripts
     mysql -u root -proot < init-marshrut-confs.sql
-    echo 'Добавляем в конфигурацию сервера mysql путь к файлу автозапуска с кодом инициализации таблицы marshrut_confs при последующих перезапусках сервера'
-    cp -f init-file.sql /home/vagrant/
-    sudo sed -i -e '$a init-file = /home/vagrant/init-file.sql' /etc/mysql/mysql.conf.d/trains_db.cnf
-    echo Готово.
+	
+	TRAINS_DB_CNF=/etc/mysql/mysql.conf.d/trains_db.cnf
+	if [[ -z $(grep init-file "$TRAINS_DB_CNF") ]]; then
+	   echo 'Добавляем в конфигурацию сервера mysql путь к файлу автозапуска с кодом инициализации таблицы marshrut_confs при последующих перезапусках сервера'
+       cp -f init-file.sql /home/vagrant/
+       sudo sed -i -e '$a init-file = /home/vagrant/init-file.sql' "$TRAINS_DB_CNF"
+	fi
+    
+	echo Готово.
 SCRIPT
 
 Vagrant.configure("2") do |config|
     config.vm.box = "dimitryos/mysql8"
-	config.vm.box_version = "1.1"
+	config.vm.box_version = "1.2"
   
     config.vm.provider "virtualbox" do |v|
       v.default_nic_type = "Am79C973"
@@ -72,6 +84,7 @@ Vagrant.configure("2") do |config|
     
     config.vm.provision "shell", inline: $create_tablespace
     config.vm.provision "shell", inline: $create_schema
+    config.vm.provision "shell", inline: $create_routines
     config.vm.provision "shell", inline: $create_user
     config.vm.provision "shell", inline: $unpack_table_data
     config.vm.provision "shell", inline: $load_table_data

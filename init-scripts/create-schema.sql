@@ -190,19 +190,61 @@ CREATE TABLE `vagon_type` (
 ENGINE=InnoDB 
 COMMENT='Типы вагонов в соответствии с классификацией перевозчика или категории вагона и класса обслуживания';
 
+create table seat_placement (
+    `id_seat_placement` tinyint unsigned not null,
+	`name_seat_placement` varchar(120),
+	
+	primary key (`id_seat_placement`)
+) 
+comment 'Справочник вариантов расположения места в вагоне'
+engine=innodb
+;
+
+insert into seat_placement values 
+(1, 'Нижнее'),
+(2, 'Верхнее'),
+(3, 'Нижнее боковое'),
+(4, 'Верхнее боковое'),
+(5, 'Нижнее боковое у туалета'),
+(6, 'Последнее купе, нижнее'),
+(7, 'Последнее купе, верхнее')
+;
 
 CREATE TABLE `vagon_conf` (
   `id_vagon_type` tinyint unsigned NOT NULL COMMENT 'сост. PK, тип вагона (тж. FK)',
   `seat_num` tinyint unsigned NOT NULL COMMENT 'сост. PK, номер места в вагоне (не более 125)',
   `coupe_num` tinyint unsigned DEFAULT NULL COMMENT 'номер купе',
-  `is_upper` tinyint GENERATED ALWAYS AS (if(((`id_vagon_type` in (3,4,12,13,14,15,17,29,30)) and ((`seat_num` % 2) = 0)),1,0)) VIRTUAL,
-  `is_side` tinyint GENERATED ALWAYS AS (if(((`id_vagon_type` in (4,15)) and (`seat_num` between 37 and 54)),1,0)) VIRTUAL,
-  `is_last_coupe` tinyint GENERATED ALWAYS AS (if(((`id_vagon_type` = 15) and (`seat_num` between 33 and 36)),1,0)) VIRTUAL,
-  `is_by_wc` tinyint GENERATED ALWAYS AS (if(((`id_vagon_type` = 15) and (`seat_num` between 37 and 38)),1,0)) VIRTUAL,
+ 
+ `id_seat_placement` tinyint unsigned GENERATED ALWAYS AS (
+    case
+       when ((`id_vagon_type` = 15) and (`seat_num` = 37)) then 5
+       when ((`id_vagon_type` = 15) and (`seat_num` between 38 and 51) and ((`seat_num` % 2) = 0)) then 4
+       when ((`id_vagon_type` = 15) and (`seat_num` between 39 and 51) and ((`seat_num` % 2) != 0)) then 3
+       when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) = 0)) then 7
+       when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) != 0)) then 6
+       when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) = 0)) then 2
+       when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) != 0)) then 1
+    end 
+  ) VIRTUAL,
+
   `is_invalid` tinyint NOT NULL DEFAULT '0' COMMENT 'признак места, предназначеного для инвалидов',
   `gender_constraints` tinyint NOT NULL DEFAULT '0' COMMENT 'правило определения возможности забронировать место в данном купе в зависимости от пола пассажира: 0 - без различия, 1 - будет определяться динамически полом первого пассажира в данном купе, 2 - мужчины, 3 - женщины.',
-  `k` decimal(4,3) GENERATED ALWAYS AS ((case when ((`id_vagon_type` = 3) and (`is_upper` = 1)) then 0.8 when (`is_invalid` = 1) then 0.5 when ((`id_vagon_type` = 15) and (`is_upper` = 1)) then 0.95 when ((`id_vagon_type` = 15) and (`is_side` = 1) and (`is_upper` = 0)) then 0.95 when ((`is_by_wc` = 1) and (`is_upper` = 0)) then 0.91 when ((`is_last_coupe` = 1) and (`is_upper` = 0)) then 0.91 when ((`is_last_coupe` = 1) and (`is_upper` = 1)) then 0.91 else 1.0 end)) VIRTUAL,
+
+  `k` decimal(4,3) unsigned GENERATED ALWAYS AS (
+    case 
+       when (`is_invalid` = 1) then 0.5 
+       when (`id_seat_placement` = 2) then 0.85 
+       when (`id_seat_placement` = 3) then 0.85 
+       when (`id_seat_placement` = 4) then 0.75 
+       when (`id_seat_placement` = 5) then 0.9 
+       when (`id_seat_placement` = 6) then 0.9 
+       when (`id_seat_placement` = 7) then 0.9 
+       else 1.0 
+	end
+  ) VIRTUAL,
+  
   PRIMARY KEY (`id_vagon_type`,`seat_num`),
+  INDEX `idx_seat_placement_vc` (`id_seat_placement`),
   CONSTRAINT `fk_vagon_type_vc` FOREIGN KEY (`id_vagon_type`) REFERENCES `vagon_type` (`id_vagon_type`) ON UPDATE CASCADE
 ) 
 ENGINE=InnoDB 
@@ -223,7 +265,7 @@ CREATE TABLE `sostav_conf` (
   CONSTRAINT `fk_vagon_trs` FOREIGN KEY (`id_vagon_type`) REFERENCES `vagon_type` (`id_vagon_type`) ON UPDATE CASCADE
 ) 
 ENGINE=InnoDB 
-COMMENT='Конфигурация вагонов для заданного типа составов (связь состав-вагон)';
+COMMENT='Конфигурация вагонов для заданного типа состава (связь состав-вагон)';
 
 
 CREATE TABLE `ticket_order` (
@@ -320,7 +362,8 @@ select distinct
     p.`name` as perevozchik_name,
     coupe_num, 
     seat_num, 
-    seat_placement, 
+    vc.id_seat_placement, 
+	name_seat_placement,
     is_invalid, 
     gender_constraints, 
     srvc.id_service_class, 
@@ -335,6 +378,7 @@ from
     inner join vagon_category as vcat using(id_vagon_category)
     inner join service_class AS srvc ON sc.id_service_class=srvc.id_service_class
     inner join perevozchik as p ON vt.id_perevozchik=p.id_perevozchik
+	left join seat_placement as sp using(id_seat_placement)
 ;
 -- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `marshruts_v` AS select `mn`.`marshrut_name` AS `marshrut_name`,`m`.`order_number` AS `order_number`,`s`.`station_name` AS `station_name`,`s`.`id_railway` AS `id_railway`,`m`.`arrive_time` AS `arrive_time`,`m`.`stop_time` AS `stop_time`,`m`.`departure_time` AS `departure_time`,`m`.`km_from_start` AS `km_from_start`,`m`.`reach_time` AS `reach_time`,`st`.`sostav_name` AS `sostav_name` from (((`marshrut` `m` join `marshrut_names` `mn` on((`m`.`id_marshrut` = `mn`.`id_marshrut`))) join `station` `s` on((`m`.`id_station` = `s`.`id_station`))) join `sostav_type` `st` on((`m`.`id_sostav_type` = `st`.`id_sostav_type`))) order by `m`.`id_marshrut`,`m`.`order_number`;
 -- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `trip_seats_v` AS select `tr`.`id_trip` AS `id_trip`,`t`.`train_num` AS `train_num`,`m`.`id_station` AS `id_station`,`s`.`station_name` AS `station_name`,`m`.`order_number` AS `order_number`,date_format(`ts`.`arrive_dt`,'%d.%m.%Y  %H:%i') AS `arrive_dt`,date_format(`m`.`stop_time`,'%H:%i') AS `stop_time`,date_format(`ts`.`departure_dt`,'%d.%m.%Y  %H:%i') AS `departure_dt`,`m`.`km_from_start` AS `km_from_start`,cast(`sc`.`vagon_ord_num` as unsigned) AS `vagon_ord_num`,`sc`.`id_vagon_type` AS `id_vagon_type`,`vcat`.`name_vagon_category` AS `name_vagon_category`,`p`.`name` AS `name`,`sc`.`id_service_class` AS `id_service_class`,`srv`.`service_class_code` AS `service_class_code`,`vc`.`coupe_num` AS `coupe_num`,`vc`.`seat_num` AS `seat_num`,`vc`.`is_upper` AS `is_upper`,`sc`.`price_basic` AS `price_basic`,`vc`.`k` AS `k` from (((((((((((`trip` `tr` join `marshrut_names` `mn` on((`tr`.`id_marshrut` = `mn`.`id_marshrut`))) join `train` `t` on((`mn`.`id_train` = `t`.`id_train`))) join `marshrut` `m` on((`mn`.`id_marshrut` = `m`.`id_marshrut`))) join `trip_schedule` `ts` on(((`tr`.`id_trip` = `ts`.`id_trip`) and (`m`.`id_station` = `ts`.`id_station`)))) join `station` `s` on((`ts`.`id_station` = `s`.`id_station`))) join `sostav_conf` `sc` on((`m`.`id_sostav_type` = `sc`.`id_sostav_type`))) join `service_class` `srv` on((`sc`.`id_service_class` = `srv`.`id_service_class`))) join `vagon_conf` `vc` on((`sc`.`id_vagon_type` = `vc`.`id_vagon_type`))) join `vagon_type` `vt` on((`vc`.`id_vagon_type` = `vt`.`id_vagon_type`))) join `vagon_category` `vcat` on((`vt`.`id_vagon_category` = `vcat`.`id_vagon_category`))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`))) order by `tr`.`id_trip`,`m`.`order_number`,cast(`sc`.`vagon_ord_num` as unsigned),`vc`.`coupe_num`,`vc`.`seat_num`;
