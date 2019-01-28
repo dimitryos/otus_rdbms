@@ -223,7 +223,7 @@ CREATE TABLE `vagon_conf` (
        when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) = 0)) then 7
        when ((`id_vagon_type` = 15) and (`seat_num` between 33 and 36) and ((`seat_num` % 2) != 0)) then 6
        when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) = 0)) then 2
-       when ((`id_vagon_type` in (3,4,29,30,12,13,14,15)) and ((`seat_num` % 2) != 0)) then 1
+       else 1
     end 
   ) VIRTUAL,
 

@@ -36,7 +36,7 @@ $unpack_table_data = <<-SCRIPT
         rm "$MYSQL_FILES_DIR"/*
     fi
     cd /vagrant
-    tar -xzvf csv.tgz -C "$MYSQL_FILES_DIR"
+    tar -xjvf csv.tar.bz2 -C "$MYSQL_FILES_DIR"
     echo Готово.
 SCRIPT
 

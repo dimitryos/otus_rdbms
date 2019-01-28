@@ -57,22 +57,23 @@ AFTER `is_invalid`
 ;
 */
 
-create table seat_placement (
-    `id_seat_placement` tinyint unsigned not null,
-	`name_seat_placement` varchar(120),
-	
-	primary key (`id_seat_placement`)
-) 
-comment 'Справочник вариантов расположения места в вагоне'
-engine=innodb
+
+START TRANSACTION;
+
+UPDATE vagon_category as vc SET vc.name_vagon_category='Купе (комфорт)' WHERE vc.id_vagon_category=4;
+UPDATE vagon_category as vc SET vc.name_vagon_category='Плацкарт (комфорт)' WHERE vc.id_vagon_category=11;
+
+UPDATE vagon_type AS vt SET vt.id_vagon_category=4 WHERE vt.id_vagon_type IN (12, 13 , 14);
+UPDATE vagon_type AS vt SET vt.id_vagon_category=11 WHERE vt.id_vagon_type = 15;
+
+COMMIT;
+
+SELECT * FROM vagon_category 
+INTO OUTFILE '/var/lib/mysql-files/vagon_category.txt'
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 ;
 
-insert into seat_placement values 
-(1, 'Нижнее'),
-(2, 'Верхнее'),
-(3, 'Нижнее боковое'),
-(4, 'Верхнее боковое'),
-(5, 'Нижнее боковое у туалета'),
-(6, 'Последнее купе, нижнее'),
-(7, 'Последнее купе, верхнее')
+SELECT * FROM vagon_type 
+INTO OUTFILE '/var/lib/mysql-files/vagon_type.txt'
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 ;
