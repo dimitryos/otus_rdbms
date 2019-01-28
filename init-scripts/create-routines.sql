@@ -248,4 +248,80 @@ BEGIN
 END 
 ;;
 
+
+DROP PROCEDURE if EXISTS `basic_vagon_info`;
+
+CREATE PROCEDURE `basic_vagon_info` (
+    IN _id_trip INT UNSIGNED,
+    IN _id_station_a SMALLINT UNSIGNED,
+    IN _id_station_b SMALLINT UNSIGNED,
+    IN _id_vagon_category TINYINT UNSIGNED
+) 
+READS SQL DATA 
+COMMENT 'Для заданного отправления выводит общую информацию о ценах и сервисных услугах по каждому номеру вагона в составе, в котором есть наличие свободных мест, с группировкой по типу расположения места'
+BEGIN 
+    declare _id_marshrut smallint unsigned;
+    
+    select id_marshrut from trip where id_trip = _id_trip into _id_marshrut;
+    
+    select
+        /* № вагона */
+        trs.vagon_ord_num, 
+        /* тип расположения места */
+        ANY_VALUE(name_seat_placement) as placement,
+        /* количество свободных мест с данным типом расположения*/
+        COUNT(*) AS vacant_seats_qty,
+        /* нижний порог цены для данной группы мест */
+        MIN(round(price_basic * k * route_length(_id_marshrut, _id_station_a, _id_station_b))) as price_from, 
+        /* название перевозчика, которому принадлежит данный вагон в составе */
+        ANY_VALUE(perevozchik_name) as perevozchik_name, 
+        /* класс обслуживания вагона */
+        ANY_VALUE(service_class_code) as service_class_code, 
+        /* наличие специального багажного купе */
+        SUM(if(id_vagon_type=29, 1, 0)) as has_heavy_luggage_coupe,
+        /* наличие места для инвалида в данном вагоне */
+        SUM(is_invalid) as has_invalid_seats,
+        /* сервисные услуги, доступные для данного вагона */
+        GROUP_CONCAT(distinct so.id_service_option) AS id_service_options
+    from 
+        trip_seats as trs
+        inner join trip as tr using(id_trip)
+        inner join marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+        inner join service_class_options AS sco ON mc.id_service_class=sco.id_service_class
+        inner join service_option AS so ON sco.id_service_option=so.id_service_option
+    where 
+        trs.id_trip=_id_trip and trs.id_station=_id_station_a and id_ticket_order is null and mc.id_vagon_category=_id_vagon_category
+    group by 
+        vagon_ord_num, id_seat_placement
+    ;
+END
+;;
+
+
+DROP PROCEDURE if EXISTS vagon_vacant_seats;
+
+CREATE PROCEDURE vagon_vacant_seats (
+    IN _id_trip INT UNSIGNED,
+    IN _id_station_a SMALLINT UNSIGNED,
+    IN _vagon_ord_num TINYINT UNSIGNED,
+    IN _route_length SMALLINT UNSIGNED
+)
+READS SQL DATA
+COMMENT 'Выводит список свободных мест в данном вагоне с выводом информации о цене, месторасположении в вагоне и ограничениях по полу для заданной станции отправления'
+BEGIN
+    select distinct 
+        trs.seat_num,
+        name_seat_placement,
+        trs.gender_constraints,
+        round(price_basic * k * _route_length) as basic_price
+    from 
+        trip_seats as trs
+        inner join trip as tr using(id_trip)
+        inner join marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+    where 
+        trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.vagon_ord_num=_vagon_ord_num
+    ;
+END
+;;
+
 delimiter ;

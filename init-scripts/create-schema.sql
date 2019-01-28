@@ -327,8 +327,7 @@ CREATE TABLE `trip_seats` (
   `gender_constraints_vc` tinyint unsigned DEFAULT NULL,
   `id_ticket_order` int unsigned DEFAULT NULL,
   
-  INDEX `idx_trip_station_trs` (`id_trip`,`id_station`),
-  INDEX `idx_trip_vagon_seat_trs` (`vagon_ord_num`, `seat_num`)
+  INDEX `idx_trip_station_trs` (`id_trip`, `id_station`, `vagon_ord_num`)
 ) 
 ENGINE=InnoDB 
 COMMENT='Расклад по местам для заданной поездки (партиционирование по хэшу id поездки для уменьшения времени поиска данных по заданной поездке)'
