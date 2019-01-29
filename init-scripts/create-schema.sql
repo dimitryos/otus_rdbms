@@ -105,14 +105,11 @@ CREATE TABLE `sostav_type` (
   `id_sostav_type` smallint unsigned NOT NULL AUTO_INCREMENT COMMENT 'id состава (кардинальность примерно равна числу поездов (т.е. не более тысячи) с учетом того, что некоторым поездам соответствют несколько типов составов, поскольку они могут изменять тип состава на пути следования)',
   `sostav_name` varchar(100) NOT NULL COMMENT 'Кодовое название состава',
   `description` text COMMENT 'Расширенное описание состава',
-  `id_perevozchik` tinyint unsigned NOT NULL COMMENT 'FK, id перевозчика)',
   PRIMARY KEY (`id_sostav_type`),
-  UNIQUE KEY `sostav_name` (`sostav_name`),
-  INDEX `fk_perevozchik_stvt` (`id_perevozchik`),
-  CONSTRAINT `fk_perevozchik_stvt` FOREIGN KEY (`id_perevozchik`) REFERENCES `perevozchik` (`id_perevozchik`) ON UPDATE CASCADE
+  UNIQUE KEY `sostav_name` (`sostav_name`)
 ) 
 ENGINE=InnoDB 
-COMMENT='Перечень символических названий кофигураций составов, находящихся в эксплуатации у перевозчиков';
+COMMENT='Перечень символических названий кофигураций составов, находящихся в эксплуатации';
 
 
 CREATE TABLE `marshrut` (
