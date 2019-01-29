@@ -86,6 +86,12 @@ COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 ;
 
+LOAD DATA INFILE '/var/lib/mysql-files/passenger_pdata.txt' 
+INTO TABLE passenger_pdata 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
 LOAD DATA INFILE '/var/lib/mysql-files/sostav_conf.txt' 
 INTO TABLE sostav_conf 
 COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'

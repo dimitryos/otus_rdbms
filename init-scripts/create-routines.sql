@@ -309,19 +309,33 @@ CREATE PROCEDURE vagon_vacant_seats (
 READS SQL DATA
 COMMENT 'Выводит список мест в данном вагоне с выводом информации о цене, месторасположении в вагоне и ограничениях по полу для заданной станции отправления'
 BEGIN
-    select distinct 
-        trs.seat_num,
+    WITH vagon_seats AS (
+        select 
+            trs.coupe_num,
+            trs.seat_num,
+            name_seat_placement,
+            ifnull(trs.id_ticket_order, 0) AS is_seat_reserved,
+            COUNT(trs.id_ticket_order) OVER(PARTITION BY trs.coupe_num) AS is_coupe_not_empty,
+            trs.gender_constraints, 
+            trs.gender_constraints_vc,
+            round(price_basic * k * _route_length) as basic_price    
+        from 
+            trip_seats as trs
+            inner join trip as tr using(id_trip)
+            inner join marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+        where 
+            trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.vagon_ord_num=_vagon_ord_num
+    )
+    SELECT 
+        seat_num,
         name_seat_placement,
-        trs.gender_constraints,
-        round(price_basic * k * _route_length) as basic_price
-    from 
-        trip_seats as trs
-        inner join trip as tr using(id_trip)
-        inner join marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
-    where 
-        trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.vagon_ord_num=_vagon_ord_num
+        is_seat_reserved,
+        basic_price,
+        if(is_coupe_not_empty, gender_constraints, gender_constraints_vc) AS gender_constraints
+    FROM 
+        vagon_seats
     ;
-END
+    END
 ;;
 
 delimiter ;
