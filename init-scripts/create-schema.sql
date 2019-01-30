@@ -34,7 +34,7 @@ CREATE TABLE `passenger_pdata` (
   `name` varchar(200) NOT NULL COMMENT 'Имя (достаточно 50 символов)',
   `father_name` varchar(200) DEFAULT NULL COMMENT 'Отчество (необязательное поле, достаточно 50 символов)',
   `family_name` varchar(200) NOT NULL COMMENT 'Фамилия (достаточно 50 символов)',
-  `gender` enum('М','Ж') NOT NULL COMMENT 'Пол (возможны только два варианта)',
+  `gender` tinyint unsigned NOT NULL COMMENT 'Пол (возможны только два варианта: 2 - мужской, 3 - женский)',
   `birth_date` date NOT NULL COMMENT 'Дата рождения (обычный тип даты)',
   `passport` varchar(60) DEFAULT NULL COMMENT 'Номер удостоверения личности (обязательное поле, для большинства удостоверений достаточно 15 символов)',
   PRIMARY KEY (`id_passenger`),
