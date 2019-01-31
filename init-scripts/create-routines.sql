@@ -338,4 +338,202 @@ BEGIN
     END
 ;;
 
+
+
+DROP PROCEDURE if EXISTS place_ticket_order;
+
+CREATE PROCEDURE place_ticket_order (
+    IN _id_passenger INT UNSIGNED,
+    IN _id_trip INT UNSIGNED,
+    IN _id_station_a SMALLINT UNSIGNED,
+    IN _id_station_b SMALLINT UNSIGNED,
+    IN _vagon_ord_num TINYINT UNSIGNED,
+    IN _seat_num TINYINT UNSIGNED,
+    IN _wished_gender_constraints TINYINT UNSIGNED,
+    IN _price_itog SMALLINT UNSIGNED,
+    OUT _id_ticket_order INT UNSIGNED,
+    OUT _status SMALLINT,
+    OUT _message VARCHAR(10000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci 
+)
+READS SQL DATA
+COMMENT 'Размещение заказа на билет на проезд по заданному маршруту'
+BEGIN
+    /* Разница в сутках между датой отправления поезда и датой размещения заказа */
+    DECLARE _trip_date_diff SMALLINT;
+    
+    /* Скидка (наценка) к базовой цене билета в зависимости от _trip_date_diff */
+    DECLARE _time_price_k DECIMAL(4,3);
+    
+    /* Пол пассажира */
+    DECLARE _passenger_gender TINYINT UNSIGNED;
+    
+    /* Знчения одноименных полей из trip_seats */
+    DECLARE _gender_constraints TINYINT UNSIGNED;
+    DECLARE _gender_constraints_vc TINYINT UNSIGNED;
+    
+    /* Порядковые номера граничных станций */
+    DECLARE _order_number_a TINYINT UNSIGNED;
+    DECLARE _order_number_b TINYINT UNSIGNED;
+    
+    DECLARE _coupe_num TINYINT UNSIGNED;
+    
+    /* Признаки занятости места и непустоты купе */
+    DECLARE _is_seat_reserved TINYINT UNSIGNED;
+    DECLARE _is_coupe_not_empty TINYINT UNSIGNED;
+    
+    /* Текущее значение из курсора */
+    DECLARE _cut_id_station SMALLINT UNSIGNED;
+    /* Признак конца выборки данных в курсоре */
+    DECLARE cut_end TINYINT UNSIGNED DEFAULT 0;
+    
+    /* выборка отрезка маршрута от _id_station_a до _id_station_b, соответствующего заданному id_trip, для последующих манипуляций */
+    DECLARE cut CURSOR FOR 
+        SELECT id_station
+        FROM trip AS tr INNER JOIN marshrut USING(id_marshrut)
+        WHERE tr.id_trip = _id_trip AND order_number BETWEEN _order_number_a AND _order_number_b
+        ORDER BY order_number
+    ;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET cut_end=1;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION  
+	BEGIN   
+		ROLLBACK;
+		SET _id_ticket_order = null;
+		GET STACKED DIAGNOSTICS CONDITION  1 _status = MYSQL_ERRNO, _message = MESSAGE_TEXT;
+	END;
+
+	START TRANSACTION;
+    
+    /* Вычисляем разницу между датой отправления поезда и датой размещения заказа */
+    SELECT DISTINCT datediff(trs.departure_dt, NOW()) AS trip_date_diff
+    FROM trip AS tr INNER JOIN trip_schedule AS trs USING(id_trip)
+    WHERE tr.id_trip = _id_trip AND trs.arrive_dt IS null
+    INTO _trip_date_diff
+    ;
+    
+    /* Вычисляем коэффициент скидки(наценки) в заисимости от разницы между датой отправления поезда и датой размещения заказа*/
+    if (_trip_date_diff <= 0 OR _trip_date_diff > 90) then
+        SIGNAL SQLSTATE VALUE 'HY000' 
+        SET MYSQL_ERRNO = 5003, MESSAGE_TEXT = 'Недопустимая дата для размещения заказа';
+    ELSEIF (_trip_date_diff BETWEEN 45 AND 90) then
+        SET _time_price_k = 0.8;
+    ELSEIF (_trip_date_diff BETWEEN 1 AND 15) then
+        SET _time_price_k = (100 + 1.5*(16 - _trip_date_diff))/100;
+    ELSE 
+        SET _time_price_k = 1.0;
+    END if;
+    
+    /* Выясняем текущее значение гендерных ограничений для заданного места, а также номер соответствующего купе и состояние их занятости */
+    WITH vagon_state_by_station AS (
+        SELECT 
+            trs.*, COUNT(trs.id_ticket_order) OVER(PARTITION BY trs.coupe_num) AS is_coupe_not_empty
+        FROM 
+            trip_seats AS trs
+        WHERE 
+            trs.id_trip = _id_trip 
+            AND trs.id_station = _id_station_a 
+            AND trs.vagon_ord_num = _vagon_ord_num
+    )
+    SELECT coupe_num, gender_constraints, gender_constraints_vc, id_ticket_order, is_coupe_not_empty
+    FROM vagon_state_by_station
+    WHERE seat_num = _seat_num
+    INTO _coupe_num, _gender_constraints, _gender_constraints_vc, _is_seat_reserved, _is_coupe_not_empty
+    ;
+    
+    if (_is_seat_reserved > 0) then 
+        SIGNAL SQLSTATE VALUE 'HY000' 
+        SET MYSQL_ERRNO = 5000, MESSAGE_TEXT = 'Данное место уже является зарезервированным';
+    END if;
+    
+    /* Выясняем пол пассажира */
+    SELECT pd.gender
+    FROM passenger AS p INNER JOIN passenger_pdata AS pd USING(id_passenger) 
+    WHERE p.id_passenger = _id_passenger
+    INTO _passenger_gender
+    ; 
+    
+    /* Проверяем здравый смысл для накладываемых пассажиром гендерных ограничений: они либо должны соответствовать полу пассажира, либо иметь тип смешанный */
+    if (_wished_gender_constraints != _passenger_gender AND _wished_gender_constraints != 0) then
+        SIGNAL SQLSTATE VALUE 'HY000' 
+        SET MYSQL_ERRNO = 5001, MESSAGE_TEXT = 'Несоответствие пола пассажира типу накладываемых им гендерных ограничений';
+    END if;
+    
+    /* Условия возможности размещения заказа относительно гендерных ограничений: 
+          текущий режим не определен, 
+          или динамический, 
+          или смешанный 
+          или совпадает с полом пассажира */
+    if (
+        _gender_constraints IS NULL 
+        OR _gender_constraints = 0 
+        OR _gender_constraints = 1 
+        OR _gender_constraints = _passenger_gender
+    ) then 
+        /* Создаём запись о заказе и выясняем его id */
+        INSERT INTO ticket_order
+        (id_passenger, id_trip, vagon_ord_num, seat_num, id_trip_station_a, id_trip_station_b, price_itog)
+        VALUES 
+        (_id_passenger, _id_trip, _vagon_ord_num, _seat_num, _id_station_a, _id_station_b, round(_price_itog*_time_price_k));
+        
+        SET _id_ticket_order = LAST_INSERT_ID();
+        
+        /* Далее для всех станций заданного отрезка маршрута кроме последней (поскольку пассажир на ней выходит, и место особождается) нужно
+           проставить признак резервирования в виде _id_ticket_order, а для всего купе - желаемые пассажиром гендерные ограничения согласно бизнес-правилам */
+         
+        /* выясняем границы отрезка маршрута */
+        SELECT m.order_number
+        FROM trip AS tr INNER JOIN marshrut AS m USING(id_marshrut)
+        WHERE tr.id_trip=_id_trip AND m.id_station=_id_station_a
+        INTO _order_number_a
+        ;
+        
+        SELECT m.order_number
+        FROM trip AS tr INNER JOIN marshrut AS m USING(id_marshrut)
+        WHERE tr.id_trip=_id_trip AND m.id_station=_id_station_b
+        INTO _order_number_b
+        ;
+        
+        OPEN cut;
+        
+        fetch_cut: loop
+            fetch FROM cut INTO _cut_id_station;
+            /* Выходим из цикла как только достигнем конечной станции заданного отрезка маршрута */
+            if (_cut_id_station = _id_station_b or cut_end = 1) then
+                leave fetch_cut;
+            END if;
+            
+            /* Проставляем признак зарезервированности для указанного места в вагоне */
+            UPDATE trip_seats AS trs
+            SET trs.id_ticket_order = _id_ticket_order
+            WHERE 
+                trs.id_trip = _id_trip 
+                AND trs.id_station = _cut_id_station 
+                AND trs.vagon_ord_num = _vagon_ord_num 
+                AND trs.seat_num = _seat_num
+            ;
+                
+            /* Гендерные ограничения для купе назначаются первым пассажиром в купе, в случае если на данное купе изначально распостраняется эта возможность */
+            if (_is_coupe_not_empty = 0 and _gender_constraints_vc = 1) then 
+                UPDATE trip_seats AS trs
+                SET trs.gender_constraints = _wished_gender_constraints
+                WHERE 
+                    trs.id_trip = _id_trip 
+                    AND trs.id_station = _cut_id_station 
+                    AND trs.vagon_ord_num = _vagon_ord_num 
+                    AND trs.coupe_num = _coupe_num
+                ;
+            end if;
+        END loop fetch_cut;
+        
+        close cut;
+    else
+        SIGNAL SQLSTATE VALUE 'HY000' 
+        SET MYSQL_ERRNO = 5002, MESSAGE_TEXT = 'Пол пассажира не соответствует гендерным ограничениям для данного места';    
+    end if;
+    
+    COMMIT;
+END
+;;
+
+
 delimiter ;

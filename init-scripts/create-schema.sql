@@ -273,9 +273,11 @@ CREATE TABLE `ticket_order` (
   `seat_num` tinyint unsigned NOT NULL,
   `id_trip_station_a` int unsigned NOT NULL,
   `id_trip_station_b` int unsigned NOT NULL,
-  `price_itog` decimal(8,3) unsigned NOT NULL,
-  `status` tinyint NOT NULL COMMENT 'Статус оплаты: 0 - зарезервирован (неоплачен), 1 - оплачен, -1 - отменён, -2 - деньги возвращены',
+  `price_itog` smallint unsigned NOT NULL COMMENT 'Итоговая начисленная сумма за билет',
+  `status` tinyint not null default '0' COMMENT 'Статус заказа: 0 - ожидание оплаты, 1 - оплачен, -1 - ожидает возврата денег, -2 - деньги возвращены',
   `order_dt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `return_dt` timestamp null default null COMMENT 'Признак и время возврата денег за билет',
+  
   PRIMARY KEY (`id_ticket_order`),
   INDEX `fk_passenger_to` (`id_passenger`),
   INDEX `idx_reserved_tko` (`id_trip`,`vagon_ord_num`,`id_trip_station_a`),
@@ -331,6 +333,32 @@ COMMENT='Расклад по местам для заданной поездки
 PARTITION BY HASH(id_trip);
 
 
+CREATE TABLE `buh_balance` (
+    `id_operation` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Первичный ключ (кардинальность может достигать порядка нескольких сотен миллионов в годов)',
+    `op_dt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата и время совершения операции',
+    `id_ticket_order` INT UNSIGNED NOT NULL COMMENT 'FK, id заказа билета, к которому относится операция',
+    `summa` SMALLINT NOT NULL DEFAULT 0 COMMENT 'Сумма операции (порядка нескольких тысяч рублей без копеек; знак обозначает доход или убыток)',
+    
+    PRIMARY KEY (`id_operation`, `op_dt`),
+    INDEX `fk_tko_bb` (`id_ticket_order`)
+) 
+COMMENT 'История финансовых операций по заказам билетов'
+ENGINE=INNODB;
+
+/** 
+ * Разбиваем таблицу на партиции по году проведения операции и дополнительно каждую партицию делим на секции по хэшу ключа для уменьшения конкуренции за последний блок при вставке 
+ */
+ALTER TABLE `buh_balance` 
+PARTITION BY RANGE (YEAR(op_dt)) 
+SUBPARTITION BY LINEAR KEY (`id_operation`) 
+SUBPARTITIONS 8
+(
+    PARTITION g2019 VALUES LESS THAN (2020),
+    PARTITION g2020 VALUES LESS THAN (2021),
+    PARTITION g2020plus VALUES LESS THAN MAXVALUE 
+)
+;
+
 
 /**
  * Справочная вьюшка, чтобы узнать о порядке, названии и id станций всех маршрутов
@@ -347,7 +375,7 @@ order by
 /**
  * Аналог таблицы marshrut_confs в формате вьюшки для сравнения производительности запросов
  */
-create algorithm=temptable view v_marshrut_confs as
+create algorithm=temptable definer=`admin`@`%` sql security definer view v_marshrut_confs as
 select distinct
     id_marshrut, 
     vagon_ord_num, 
@@ -376,7 +404,3 @@ from
     inner join perevozchik as p ON vt.id_perevozchik=p.id_perevozchik
 	left join seat_placement as sp using(id_seat_placement)
 ;
--- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `marshruts_v` AS select `mn`.`marshrut_name` AS `marshrut_name`,`m`.`order_number` AS `order_number`,`s`.`station_name` AS `station_name`,`s`.`id_railway` AS `id_railway`,`m`.`arrive_time` AS `arrive_time`,`m`.`stop_time` AS `stop_time`,`m`.`departure_time` AS `departure_time`,`m`.`km_from_start` AS `km_from_start`,`m`.`reach_time` AS `reach_time`,`st`.`sostav_name` AS `sostav_name` from (((`marshrut` `m` join `marshrut_names` `mn` on((`m`.`id_marshrut` = `mn`.`id_marshrut`))) join `station` `s` on((`m`.`id_station` = `s`.`id_station`))) join `sostav_type` `st` on((`m`.`id_sostav_type` = `st`.`id_sostav_type`))) order by `m`.`id_marshrut`,`m`.`order_number`;
--- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `trip_seats_v` AS select `tr`.`id_trip` AS `id_trip`,`t`.`train_num` AS `train_num`,`m`.`id_station` AS `id_station`,`s`.`station_name` AS `station_name`,`m`.`order_number` AS `order_number`,date_format(`ts`.`arrive_dt`,'%d.%m.%Y  %H:%i') AS `arrive_dt`,date_format(`m`.`stop_time`,'%H:%i') AS `stop_time`,date_format(`ts`.`departure_dt`,'%d.%m.%Y  %H:%i') AS `departure_dt`,`m`.`km_from_start` AS `km_from_start`,cast(`sc`.`vagon_ord_num` as unsigned) AS `vagon_ord_num`,`sc`.`id_vagon_type` AS `id_vagon_type`,`vcat`.`name_vagon_category` AS `name_vagon_category`,`p`.`name` AS `name`,`sc`.`id_service_class` AS `id_service_class`,`srv`.`service_class_code` AS `service_class_code`,`vc`.`coupe_num` AS `coupe_num`,`vc`.`seat_num` AS `seat_num`,`vc`.`is_upper` AS `is_upper`,`sc`.`price_basic` AS `price_basic`,`vc`.`k` AS `k` from (((((((((((`trip` `tr` join `marshrut_names` `mn` on((`tr`.`id_marshrut` = `mn`.`id_marshrut`))) join `train` `t` on((`mn`.`id_train` = `t`.`id_train`))) join `marshrut` `m` on((`mn`.`id_marshrut` = `m`.`id_marshrut`))) join `trip_schedule` `ts` on(((`tr`.`id_trip` = `ts`.`id_trip`) and (`m`.`id_station` = `ts`.`id_station`)))) join `station` `s` on((`ts`.`id_station` = `s`.`id_station`))) join `sostav_conf` `sc` on((`m`.`id_sostav_type` = `sc`.`id_sostav_type`))) join `service_class` `srv` on((`sc`.`id_service_class` = `srv`.`id_service_class`))) join `vagon_conf` `vc` on((`sc`.`id_vagon_type` = `vc`.`id_vagon_type`))) join `vagon_type` `vt` on((`vc`.`id_vagon_type` = `vt`.`id_vagon_type`))) join `vagon_category` `vcat` on((`vt`.`id_vagon_category` = `vcat`.`id_vagon_category`))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`))) order by `tr`.`id_trip`,`m`.`order_number`,cast(`sc`.`vagon_ord_num` as unsigned),`vc`.`coupe_num`,`vc`.`seat_num`;
--- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `vagon_service_classes_v` AS select `p`.`name` AS `NAME`,`vt`.`id_vagon_type` AS `id_vagon_type`,`vt`.`vagon_type_name` AS `vagon_type_name`,`vt`.`id_vagon_category` AS `id_vagon_category`,`sc`.`id_service_class` AS `id_service_class`,`sc`.`service_class_code` AS `service_class_code` from ((`vagon_type` `vt` join `service_class` `sc` on(((`vt`.`id_perevozchik` = `sc`.`id_perevozchik`) and (`vt`.`id_vagon_category` = `sc`.`id_vagon_category`)))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`)));
--- CREATE ALGORITHM=MERGE DEFINER=`admin`@`%` SQL SECURITY DEFINER VIEW `sostav_confs_v` AS select `st`.`sostav_name` AS `sostav_name`,`st`.`description` AS `sostav_descr`,cast(`sc`.`vagon_ord_num` as unsigned) AS `vagon_num`,`vt`.`vagon_type_name` AS `vagon_type_name`,`p`.`name` AS `perevozchik`,`srv`.`service_class_code` AS `service_class_code` from ((((`sostav_conf` `sc` join `sostav_type` `st` on((`sc`.`id_sostav_type` = `st`.`id_sostav_type`))) join `vagon_type` `vt` on((`sc`.`id_vagon_type` = `vt`.`id_vagon_type`))) join `service_class` `srv` on((`sc`.`id_service_class` = `srv`.`id_service_class`))) join `perevozchik` `p` on((`vt`.`id_perevozchik` = `p`.`id_perevozchik`))) order by `st`.`sostav_name`,cast(`sc`.`vagon_ord_num` as unsigned);
