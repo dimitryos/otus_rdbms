@@ -335,7 +335,7 @@ PARTITION BY HASH(id_trip);
 
 CREATE TABLE `buh_balance` (
     `id_operation` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Первичный ключ (кардинальность может достигать порядка нескольких сотен миллионов в годов)',
-    `op_dt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата и время совершения операции',
+    `op_dt` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата и время совершения операции',
     `id_ticket_order` INT UNSIGNED NOT NULL COMMENT 'FK, id заказа билета, к которому относится операция',
     `summa` SMALLINT NOT NULL DEFAULT 0 COMMENT 'Сумма операции (порядка нескольких тысяч рублей без копеек; знак обозначает доход или убыток)',
     

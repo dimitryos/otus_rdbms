@@ -535,5 +535,51 @@ BEGIN
 END
 ;;
 
+/* Триггер внесения записи о финансовой операции, связанной с оплатой или возвратом денежных средств по заказу на билет */
+DROP TRIGGER if EXISTS `tko_status_au`;
+
+CREATE TRIGGER `tko_status_au`
+AFTER UPDATE ON `ticket_order`
+FOR EACH ROW 
+BEGIN
+	/* Время отправления поезда */
+	DECLARE _departure_dt DATETIME;
+	
+	/* Разница в часах между датой отправления поезда и датой размещения заказа на возврат */
+	DECLARE _return_time_diff SMALLINT;
+	
+    /* Коэффициент суммы возврата в зависимости от _return_time_diff */
+    DECLARE _return_summa_k DECIMAL(4,3);
+	
+    
+    if (NEW.`status` = 1) then
+		INSERT INTO buh_balance (id_ticket_order, summa) VALUES (NEW.id_ticket_order, NEW.price_itog);
+	ELSEIF (NEW.`status` = -2) then
+		SELECT departure_dt
+      FROM trip_schedule 
+      WHERE id_trip = NEW.id_trip AND id_station = NEW.id_trip_station_a
+      INTO _departure_dt;
+		
+		SET _return_time_diff = HOUR(TIMEDIFF(_departure_dt, NEW.return_dt));
+		/* INSERT INTO debug VALUES(CONCAT('_return_time_diff: ', _return_time_diff)); */
+		
+		if (_return_time_diff > 8) then
+		   SET _return_summa_k = -1.0;
+		ELSEIF (_return_time_diff BETWEEN 2 AND 8) then
+		   SET _return_summa_k = -0.7;
+		ELSEIF (_return_time_diff BETWEEN -15 AND 2) then
+		   SET _return_summa_k = -0.5;
+		ELSE 
+		   SET _return_summa_k = 0;
+		END if;
+		
+		INSERT INTO buh_balance 
+		(id_ticket_order, summa) 
+		VALUES 
+		(NEW.id_ticket_order, round(NEW.price_itog*_return_summa_k));
+	END if;
+END
+;;
+
 
 delimiter ;
