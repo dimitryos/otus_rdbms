@@ -27,10 +27,10 @@ end
 DROP PROCEDURE if EXISTS get_marshrut_info;
 
 CREATE PROCEDURE get_marshrut_info(
-	IN _id_trip INT UNSIGNED
+    IN _id_trip INT UNSIGNED
 )
 READS SQL DATA
-COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
+COMMENT 'Вывод информации об остановочных пунктах маршрута, соответствующего заданной поездке, с указанием времени прибытия, стоянки и отбытия.'
 BEGIN
     SELECT 
         station_name, 
@@ -54,92 +54,92 @@ END
 DROP PROCEDURE if EXISTS get_train_variants_info;
 
 CREATE PROCEDURE get_train_variants_info(
-	IN _id_station_a SMALLINT UNSIGNED,
-	IN _id_station_b SMALLINT UNSIGNED,
-	IN _date_trip DATE 
+    IN _id_station_a SMALLINT UNSIGNED,
+    IN _id_station_b SMALLINT UNSIGNED,
+    IN _date_trip DATE 
 )
 READS SQL DATA
 COMMENT 'Вывод списка возможных вариантов поездов, следующих по заданному маршруту от станции А до станции Б на определенную дату с сопутсвующей информацией'
 BEGIN
-	WITH mrsh_cte AS (
-		/* 
-		 * Получаем список маршрутов, которые содержат как А, так и Б в заданном порядке.
-		 * Для последующих соединений в том числе паралелльно также выводим: 
-		 *		id и названия станций,
-		 *		время в пути между станциями,
-		 *		id конфигурации состава, который будет отправляться от начальной станции А.
-		 * По каждому маршруту всю выводимую информацию распологаем в одну строку.
-		 */
-		SELECT 
-			ma.id_marshrut, 
-			_id_station_a AS id_station_a,
-			(SELECT station_name FROM station WHERE id_station=_id_station_a) AS station_name_start, 
-			TIMEDIFF(mb.reach_time, IFNULL(ma.reach_time, maketime(0,0,0))) AS travel_time,
-			_id_station_b AS id_station_b,
-			(SELECT station_name FROM station WHERE id_station=_id_station_b) AS station_name_end,
-			ma.id_sostav_type
-		FROM 
-			marshrut AS ma CROSS JOIN marshrut AS mb 
-		WHERE
-		    ma.id_marshrut=mb.id_marshrut
-		    AND ma.id_station=_id_station_a
-		    AND mb.id_station=_id_station_b
-		    AND ma.order_number < mb.order_number
-	),
-	trains_cte AS (
-		/*
-		 * К полученной ранее информации о маршрутах присоединяем соответствующую информацию:
-		 *   о поезде,
-		 *   о дате и времени отправления и прибытия.
-		 */
-		SELECT 
-			tr.id_trip, 
-			t.id_train, t.train_num, t.train_name,
-			mrsh_cte.station_name_start,
-			mrsh_cte.station_name_end,
-			(
-				SELECT trs.departure_dt 
-				FROM trip_schedule AS trs 
-				WHERE trs.id_trip=tr.id_trip AND trs.id_station=_id_station_a
-			) AS start_dt,
-			mrsh_cte.travel_time,
-			(
-				SELECT trs.arrive_dt 
-				FROM trip_schedule AS trs 
-				WHERE trs.id_trip=tr.id_trip AND trs.id_station=_id_station_b
-			) AS end_dt,
-			mrsh_cte.id_sostav_type
-		FROM 
-			mrsh_cte 
-			INNER JOIN marshrut_names AS mn ON mrsh_cte.id_marshrut=mn.id_marshrut
-			INNER JOIN train AS t ON mn.id_train=t.id_train
-			INNER JOIN trip AS tr ON mrsh_cte.id_marshrut=tr.id_marshrut
-		WHERE 
-			tr.`DATE`=_date_trip
-	)
-	/*
-	 * По каждой поездке присоединяем информацию о задействованных перевозчиках.
-	 * Применяем группировку с конкатенацией, чтобы вся информация о поезде была в одной строке.
-	 */
-	SELECT 
-		id_trip, 
-		any_value(id_train) AS id_train, 
-		any_value(train_num) AS train_num,
-		any_value(train_name) AS train_name,
-		any_value(station_name_start) AS train_name,
-		any_value(station_name_end) AS station_name_end,
-		any_value(start_dt) AS start_dt,
-		any_value(travel_time) AS travel_time,
-		any_value(end_dt) AS end_dt,
-		GROUP_CONCAT(distinct p.NAME) AS perevozchik_name
-	FROM 
-		trains_cte 
-		INNER JOIN sostav_conf AS st ON trains_cte.id_sostav_type=st.id_sostav_type
+    WITH mrsh_cte AS (
+        /* 
+         * Получаем список маршрутов, которые содержат как А, так и Б в заданном порядке.
+         * Для последующих соединений в том числе паралелльно также выводим: 
+         *        id и названия станций,
+         *        время в пути между станциями,
+         *        id конфигурации состава, который будет отправляться от начальной станции А.
+         * По каждому маршруту всю выводимую информацию распологаем в одну строку.
+         */
+        SELECT 
+            ma.id_marshrut, 
+            _id_station_a AS id_station_a,
+            (SELECT station_name FROM station WHERE id_station=_id_station_a) AS station_name_start, 
+            TIMEDIFF(mb.reach_time, IFNULL(ma.reach_time, maketime(0,0,0))) AS travel_time,
+            _id_station_b AS id_station_b,
+            (SELECT station_name FROM station WHERE id_station=_id_station_b) AS station_name_end,
+            ma.id_sostav_type
+        FROM 
+            marshrut AS ma CROSS JOIN marshrut AS mb 
+        WHERE
+            ma.id_marshrut=mb.id_marshrut
+            AND ma.id_station=_id_station_a
+            AND mb.id_station=_id_station_b
+            AND ma.order_number < mb.order_number
+    ),
+    trains_cte AS (
+        /*
+         * К полученной ранее информации о маршрутах присоединяем соответствующую информацию:
+         *   о поезде,
+         *   о дате и времени отправления и прибытия.
+         */
+        SELECT 
+            tr.id_trip, 
+            t.id_train, t.train_num, t.train_name,
+            mrsh_cte.station_name_start,
+            mrsh_cte.station_name_end,
+            (
+                SELECT trs.departure_dt 
+                FROM trip_schedule AS trs 
+                WHERE trs.id_trip=tr.id_trip AND trs.id_station=_id_station_a
+            ) AS start_dt,
+            mrsh_cte.travel_time,
+            (
+                SELECT trs.arrive_dt 
+                FROM trip_schedule AS trs 
+                WHERE trs.id_trip=tr.id_trip AND trs.id_station=_id_station_b
+            ) AS end_dt,
+            mrsh_cte.id_sostav_type
+        FROM 
+            mrsh_cte 
+            INNER JOIN marshrut_names AS mn ON mrsh_cte.id_marshrut=mn.id_marshrut
+            INNER JOIN train AS t ON mn.id_train=t.id_train
+            INNER JOIN trip AS tr ON mrsh_cte.id_marshrut=tr.id_marshrut
+        WHERE 
+            tr.`DATE`=_date_trip
+    )
+    /*
+     * По каждой поездке присоединяем информацию о задействованных перевозчиках.
+     * Применяем группировку с конкатенацией, чтобы вся информация о поезде была в одной строке.
+     */
+    SELECT 
+        id_trip, 
+        any_value(id_train) AS id_train, 
+        any_value(train_num) AS train_num,
+        any_value(train_name) AS train_name,
+        any_value(station_name_start) AS train_name,
+        any_value(station_name_end) AS station_name_end,
+        any_value(start_dt) AS start_dt,
+        any_value(travel_time) AS travel_time,
+        any_value(end_dt) AS end_dt,
+        GROUP_CONCAT(distinct p.NAME) AS perevozchik_name
+    FROM 
+        trains_cte 
+        INNER JOIN sostav_conf AS st ON trains_cte.id_sostav_type=st.id_sostav_type
         INNER JOIN vagon_type AS vt ON st.id_vagon_type=vt.id_vagon_type
-		INNER JOIN perevozchik AS p ON vt.id_perevozchik=p.id_perevozchik
-	GROUP BY 
-		id_trip
-	;
+        INNER JOIN perevozchik AS p ON vt.id_perevozchik=p.id_perevozchik
+    GROUP BY 
+        id_trip
+    ;
 END 
 ;;
 
@@ -147,9 +147,9 @@ END
 DROP PROCEDURE if EXISTS basic_vagon_prices;
 
 CREATE PROCEDURE basic_vagon_prices(
-	IN _id_trip INT UNSIGNED,
-	IN _id_station_a SMALLINT UNSIGNED,
-	IN _id_station_b SMALLINT UNSIGNED
+    IN _id_trip INT UNSIGNED,
+    IN _id_station_a SMALLINT UNSIGNED,
+    IN _id_station_b SMALLINT UNSIGNED
 )
 READS SQL DATA
 COMMENT 'Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки в зависимости от категории вагона с выводом сопутствующей информации (версия для движка MEMORY)'
@@ -159,7 +159,7 @@ BEGIN
     select id_marshrut from trip where id_trip = _id_trip into _id_marshrut;
     
     select
-        name_vagon_category, 
+        any_value(name_vagon_category), 
         sum(is_invalid) as has_invalid_seats,
         sum(if(id_vagon_type=29, 1, 0)) as has_heavy_luggage_coupe,
         count(*) as vacant_seats_total, 
@@ -167,7 +167,7 @@ BEGIN
     from 
         trip_seats as trs
         inner join trip as tr using(id_trip)
-        inner join marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+        inner join marshrut_confs as mc on (mc.id_marshrut = tr.id_marshrut and mc.vagon_ord_num = trs.vagon_ord_num and mc.seat_num = trs.seat_num)
     where 
         trs.id_trip=_id_trip and trs.id_station=_id_station_a and id_ticket_order is null
     group by
@@ -180,9 +180,9 @@ END
 DROP PROCEDURE if EXISTS basic_vagon_prices_v;
 
 CREATE PROCEDURE basic_vagon_prices_v(
-	IN _id_trip INT UNSIGNED,
-	IN _id_station_a SMALLINT UNSIGNED,
-	IN _id_station_b SMALLINT UNSIGNED
+    IN _id_trip INT UNSIGNED,
+    IN _id_station_a SMALLINT UNSIGNED,
+    IN _id_station_b SMALLINT UNSIGNED
 )
 READS SQL DATA
 COMMENT 'версия на вьюшке'
@@ -200,50 +200,11 @@ BEGIN
     from 
         trip_seats as trs
         inner join trip as tr using(id_trip)
-        inner join v_marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+        inner join v_marshrut_confs as mc on (mc.id_marshrut = tr.id_marshrut and mc.vagon_ord_num = trs.vagon_ord_num and mc.seat_num = trs.seat_num)
     where 
         trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.id_ticket_order is null 
     group by
         mc.id_vagon_category
-    ;
-END 
-;;
-
-
-DROP PROCEDURE if EXISTS basic_vagon_prices_j;
-
-CREATE PROCEDURE basic_vagon_prices_j(
-	IN _id_trip INT UNSIGNED,
-	IN _id_station_a SMALLINT UNSIGNED,
-	IN _id_station_b SMALLINT UNSIGNED
-)
-READS SQL DATA
-COMMENT 'версия на вьюшке'
-BEGIN
-    declare _id_marshrut smallint unsigned;
-    
-    select id_marshrut from trip where id_trip = _id_trip into _id_marshrut;
-    
-    select
-        any_value(name_vagon_category) as name_vagon_category, 
-        sum(is_invalid) as has_invalid_seats,
-        sum(if(vc.id_vagon_type=29, 1, 0)) as has_heavy_luggage_coupe,
-        count(*) as vacant_seats_total, 
-        min(round(price_basic*k*route_length(_id_marshrut, _id_station_a, _id_station_b))) as price_vagon_itog
-    from 
-        trip_seats as trs
-        inner join trip as tr using(id_trip)
-        inner join marshrut as m on (tr.id_marshrut = m.id_marshrut)
-        inner join sostav_conf as sc on (m.id_sostav_type = sc.id_sostav_type and trs.vagon_ord_num = sc.vagon_ord_num)
-        inner join vagon_conf as vc on (sc.id_vagon_type=vc.id_vagon_type and trs.seat_num = vc.seat_num)
-        inner join vagon_type as vt on (vc.id_vagon_type=vt.id_vagon_type)
-        inner join vagon_category as vcat using(id_vagon_category)
-        inner join service_class AS srvc on sc.id_service_class=srvc.id_service_class
-        inner join perevozchik as p on vt.id_perevozchik=p.id_perevozchik
-    where 
-        trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.id_ticket_order is null 
-    group by
-        vt.id_vagon_category
     ;
 END 
 ;;
@@ -286,7 +247,7 @@ BEGIN
     from 
         trip_seats as trs
         inner join trip as tr using(id_trip)
-        inner join marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+        inner join marshrut_confs as mc on (mc.id_marshrut = tr.id_marshrut and mc.vagon_ord_num = trs.vagon_ord_num and mc.seat_num = trs.seat_num)
         inner join service_class_options AS sco ON mc.id_service_class=sco.id_service_class
         inner join service_option AS so ON sco.id_service_option=so.id_service_option
     where 
@@ -322,7 +283,11 @@ BEGIN
         from 
             trip_seats as trs
             inner join trip as tr using(id_trip)
-            inner join marshrut_confs as mc on (tr.id_marshrut = mc.id_marshrut and trs.vagon_ord_num = mc.vagon_ord_num and trs.seat_num = mc.seat_num)
+            inner join marshrut_confs as mc on (
+                mc.id_marshrut = tr.id_marshrut 
+                and mc.vagon_ord_num = trs.vagon_ord_num 
+                and mc.seat_num = trs.seat_num
+            )
         where 
             trs.id_trip=_id_trip and trs.id_station=_id_station_a and trs.vagon_ord_num=_vagon_ord_num
     )
@@ -335,7 +300,7 @@ BEGIN
     FROM 
         vagon_seats
     ;
-    END
+END
 ;;
 
 
@@ -396,13 +361,13 @@ BEGIN
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET cut_end=1;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION  
-	BEGIN   
-		ROLLBACK;
-		SET _id_ticket_order = null;
-		GET STACKED DIAGNOSTICS CONDITION  1 _status = MYSQL_ERRNO, _message = MESSAGE_TEXT;
-	END;
+    BEGIN   
+        ROLLBACK;
+        SET _id_ticket_order = null;
+        GET STACKED DIAGNOSTICS CONDITION  1 _status = MYSQL_ERRNO, _message = MESSAGE_TEXT;
+    END;
 
-	START TRANSACTION;
+    START TRANSACTION;
     
     /* Вычисляем разницу между датой отправления поезда и датой размещения заказа */
     SELECT DISTINCT datediff(trs.departure_dt, NOW()) AS trip_date_diff
@@ -453,7 +418,7 @@ BEGIN
     ; 
     
     /* Проверяем здравый смысл для накладываемых пассажиром гендерных ограничений: они либо должны соответствовать полу пассажира, либо иметь тип смешанный */
-    if (_wished_gender_constraints != _passenger_gender AND _wished_gender_constraints != 0) then
+    IF (_wished_gender_constraints != _passenger_gender AND _wished_gender_constraints != 0) THEN
         SIGNAL SQLSTATE VALUE 'HY000' 
         SET MYSQL_ERRNO = 5001, MESSAGE_TEXT = 'Несоответствие пола пассажира типу накладываемых им гендерных ограничений';
     END if;
@@ -463,12 +428,12 @@ BEGIN
           или динамический, 
           или смешанный 
           или совпадает с полом пассажира */
-    if (
+    IF (
         _gender_constraints IS NULL 
         OR _gender_constraints = 0 
         OR _gender_constraints = 1 
         OR _gender_constraints = _passenger_gender
-    ) then 
+    ) THEN 
         /* Создаём запись о заказе и выясняем его id */
         INSERT INTO ticket_order
         (id_passenger, id_trip, vagon_ord_num, seat_num, id_trip_station_a, id_trip_station_b, price_itog)
@@ -495,10 +460,10 @@ BEGIN
         
         OPEN cut;
         
-        fetch_cut: loop
-            fetch FROM cut INTO _cut_id_station;
-            /* Выходим из цикла как только достигнем конечной станции заданного отрезка маршрута */
-            if (_cut_id_station = _id_station_b or cut_end = 1) then
+        fetch_cut: LOOP
+            FETCH FROM cut INTO _cut_id_station;
+            /* Должны выйти из цикла как только достигнем конечной станции заданного отрезка маршрута */
+            IF (_cut_id_station = _id_station_b OR cut_end = 1) THEN
                 leave fetch_cut;
             END if;
             
@@ -513,7 +478,7 @@ BEGIN
             ;
                 
             /* Гендерные ограничения для купе назначаются первым пассажиром в купе, в случае если на данное купе изначально распостраняется эта возможность */
-            if (_is_coupe_not_empty = 0 and _gender_constraints_vc = 1) then 
+            IF (_is_coupe_not_empty = 0 AND _gender_constraints_vc = 1) THEN 
                 UPDATE trip_seats AS trs
                 SET trs.gender_constraints = _wished_gender_constraints
                 WHERE 
@@ -522,14 +487,14 @@ BEGIN
                     AND trs.vagon_ord_num = _vagon_ord_num 
                     AND trs.coupe_num = _coupe_num
                 ;
-            end if;
-        END loop fetch_cut;
+            END IF;
+        END LOOP fetch_cut;
         
-        close cut;
-    else
+        CLOSE cut;
+    ELSE
         SIGNAL SQLSTATE VALUE 'HY000' 
         SET MYSQL_ERRNO = 5002, MESSAGE_TEXT = 'Пол пассажира не соответствует гендерным ограничениям для данного места';    
-    end if;
+    END IF;
     
     COMMIT;
 END
@@ -542,44 +507,255 @@ CREATE TRIGGER `tko_status_au`
 AFTER UPDATE ON `ticket_order`
 FOR EACH ROW 
 BEGIN
-	/* Время отправления поезда */
-	DECLARE _departure_dt DATETIME;
-	
-	/* Разница в часах между датой отправления поезда и датой размещения заказа на возврат */
-	DECLARE _return_time_diff SMALLINT;
-	
+    /* Время отправления поезда */
+    DECLARE _departure_dt DATETIME;
+    
+    /* Разница в часах между датой отправления поезда и датой размещения заказа на возврат */
+    DECLARE _return_time_diff SMALLINT;
+    
     /* Коэффициент суммы возврата в зависимости от _return_time_diff */
     DECLARE _return_summa_k DECIMAL(4,3);
-	
     
+    /* Если пришли деньги за билет */
     if (NEW.`status` = 1) then
-		INSERT INTO buh_balance (id_ticket_order, summa) VALUES (NEW.id_ticket_order, NEW.price_itog);
-	ELSEIF (NEW.`status` = -2) then
-		SELECT departure_dt
-      FROM trip_schedule 
-      WHERE id_trip = NEW.id_trip AND id_station = NEW.id_trip_station_a
-      INTO _departure_dt;
-		
-		SET _return_time_diff = HOUR(TIMEDIFF(_departure_dt, NEW.return_dt));
-		/* INSERT INTO debug VALUES(CONCAT('_return_time_diff: ', _return_time_diff)); */
-		
-		if (_return_time_diff > 8) then
-		   SET _return_summa_k = -1.0;
-		ELSEIF (_return_time_diff BETWEEN 2 AND 8) then
-		   SET _return_summa_k = -0.7;
-		ELSEIF (_return_time_diff BETWEEN -15 AND 2) then
-		   SET _return_summa_k = -0.5;
-		ELSE 
-		   SET _return_summa_k = 0;
-		END if;
-		
-		INSERT INTO buh_balance 
-		(id_ticket_order, summa) 
-		VALUES 
-		(NEW.id_ticket_order, round(NEW.price_itog*_return_summa_k));
-	END if;
+        INSERT INTO buh_balance (id_ticket_order, summa) VALUES (NEW.id_ticket_order, NEW.price_itog);
+    /* Если нужно вернуть деньги за билет */
+    ELSEIF (NEW.`status` = -2) then
+        SELECT departure_dt
+        FROM trip_schedule 
+        WHERE id_trip = NEW.id_trip AND id_station = NEW.id_trip_station_a
+        INTO _departure_dt;
+        
+        SET _return_time_diff = HOUR(TIMEDIFF(_departure_dt, NEW.return_dt));
+        /* INSERT INTO debug VALUES(CONCAT('_return_time_diff: ', _return_time_diff)); */
+        
+        /* Рассчитываем коэффициент для возвращаемой пассажиру суммы в зависимости от момента подачи заявки на возврат билета и времени отправления поезда. 
+           Суммы по возвратам заносятся со знаком минус. */
+        if (_return_time_diff > 8) then
+            SET _return_summa_k = -1.0;
+        ELSEIF (_return_time_diff BETWEEN 3 AND 8) then
+            SET _return_summa_k = -0.7;
+        ELSEIF (_return_time_diff BETWEEN -12 AND 2) then
+           SET _return_summa_k = -0.5;
+        ELSE 
+           SET _return_summa_k = 0;
+        END if;
+        
+        /* Вставляем соответствующую запись, применяя коэффициент перерасчёта */
+        INSERT INTO buh_balance 
+        (id_ticket_order, summa) 
+        VALUES 
+        (NEW.id_ticket_order, round(NEW.price_itog * _return_summa_k));
+        
+        /* Освобождаем место, соответствующее данному заказу */
+        UPDATE trip_seats
+        SET id_ticket_order = NULL
+        WHERE id_trip = NEW.id_trip AND id_ticket_order = NEW.id_ticket_order;
+    END if;
 END
 ;;
 
+
+DROP PROCEDURE if EXISTS gen_electron_ticket;
+
+CREATE PROCEDURE gen_electron_ticket (
+    in _id_ticket_order int unsigned,
+    out _status smallint,
+    out _message varchar(10000)
+)
+MODIFIES SQL DATA
+COMMENT 'Выборка сведений, необходимых для формирования электронного билета по заказу _id_ticket_order'
+BEGIN
+    declare _tko_status tinyint;
+    declare _ticket_number char(14);
+    declare _ticket_number_dt datetime;
+    declare _fio varchar(250);
+    declare _name_vagon_category varchar(120);
+    declare _vagon_ord_num tinyint unsigned;
+    declare _seat_num tinyint unsigned;
+    declare _name_seat_placement varchar(120);
+    declare _service_class_code varchar(80);
+    declare _train_num varchar(20);
+    declare _perevozchik_name varchar(80);
+    declare _price_itog smallint unsigned;
+    declare _trip_year char(4);
+    declare _dep_date varchar(20);
+    declare _dep_time varchar(20);
+    declare _start_station_name varchar(200);
+    declare _end_station_name varchar(200);
+    declare _arrive_date varchar(20);
+    declare _arrive_time varchar(20);
+    
+    declare exit handler for sqlexception  
+    begin   
+        rollback;
+        get stacked diagnostics condition  1 _status = MYSQL_ERRNO, _message = MESSAGE_TEXT;
+    end;
+    
+    START TRANSACTION;
+    
+    select `status` 
+    from ticket_order 
+    where id_ticket_order = _id_ticket_order 
+    into _tko_status;
+    
+    if (_tko_status !=1 ) then
+        SIGNAL SQLSTATE VALUE 'HY000' 
+        SET MYSQL_ERRNO = 5005, MESSAGE_TEXT = 'Недопустимый статус заказа';
+    end if;
+    
+    select
+        concat(pd.family_name, ' ', left(pd.`name`, 1), ' ', left(pd.father_name, 1)),
+        mc.name_vagon_category, 
+        tko.vagon_ord_num, 
+        tko.seat_num, 
+        mc.name_seat_placement,
+        mc.service_class_code,
+        train_num,
+        mc.perevozchik_name,
+        tko.price_itog
+    from 
+        ticket_order as tko
+        inner join passenger_pdata as pd using(id_passenger)
+        inner join trip as tr using(id_trip)
+        inner join marshrut_confs as mc on (
+            mc.id_marshrut = tr.id_marshrut
+            and mc.vagon_ord_num = tko.vagon_ord_num
+            and mc.seat_num = tko.seat_num
+        )
+    where
+        tko.id_ticket_order = _id_ticket_order 
+    into
+        _fio, _name_vagon_category, _vagon_ord_num, _seat_num, _name_seat_placement, _service_class_code, _train_num, _perevozchik_name, _price_itog
+    ;
+    
+    select
+        YEAR(tsc.departure_dt),
+        date_format(DATE(tsc.departure_dt), '%d.%m'),
+        time_format(TIME(tsc.departure_dt), '%H:%i'),
+        st.station_name
+    from 
+        ticket_order as tko 
+        inner join trip_schedule as tsc on (tsc.id_trip=tko.id_trip and tsc.id_station=tko.id_trip_station_a)
+        inner join station as st on (tsc.id_station=st.id_station)
+    where
+        tko.id_ticket_order = _id_ticket_order
+    into
+        _trip_year, _dep_date, _dep_time, _start_station_name
+    ;
+    
+    select
+        date_format(DATE(tsc.arrive_dt), '%d.%m'),
+        time_format(TIME(tsc.arrive_dt), '%H:%i'),
+        st.station_name as start_station_name
+    from 
+        ticket_order as tko 
+        inner join trip_schedule as tsc on (tsc.id_trip = tko.id_trip and tsc.id_station = tko.id_trip_station_b)
+        inner join station as st on (tsc.id_station = st.id_station)
+    where
+        tko.id_ticket_order = _id_ticket_order
+    into
+        _arrive_date, _arrive_time, _end_station_name
+    ;
+    
+    set _ticket_number_dt = NOW();
+    set _ticket_number = date_format(_ticket_number_dt, '%Y%m%d%H%i%s');
+    
+    update ticket_order
+    set ticket_number = _ticket_number, ticket_number_dt = _ticket_number_dt
+    where id_ticket_order = _id_ticket_order;
+    
+    COMMIT;
+    
+    select 
+        _ticket_number,
+        _fio, 
+        _trip_year,
+        _dep_date,
+        _dep_time,
+        _start_station_name,
+        _arrive_date,
+        _arrive_time, 
+        _end_station_name,
+        _train_num, 
+        _vagon_ord_num, 
+        _name_vagon_category, 
+        _seat_num, 
+        _name_seat_placement, 
+        _service_class_code, 
+        _perevozchik_name, 
+        _price_itog,
+        date_format(_ticket_number_dt, '%d.%m.%Y %H:%i') as _ticket_number_dt
+   ;
+END
+;;
+
+
+drop procedure if exists place_comment;
+
+create procedure place_comment (
+    in _id_passenger int unsigned,
+    in _id_train smallint unsigned,
+    in _comment text,
+    in _rate tinyint,
+    
+    out _id_comment int unsigned,
+    out _status smallint,
+    out _message varchar(10000)
+)
+modifies sql data
+comment 'Размещение отзыва пассажира на поездку в конкретном поезде'
+begin
+    declare _train_rating float;
+
+    declare exit handler for sqlexception  
+    begin   
+        rollback;
+        get stacked diagnostics condition  1 _status = MYSQL_ERRNO, _message = MESSAGE_TEXT;
+    end;
+    
+    START TRANSACTION;
+    
+    /* Сначала проверяем, действительно ли этот пассажир имел когда-либо поездку на данном поезде */
+    if (not exists(
+        select 1
+        from 
+            ticket_order as tko 
+            inner join trip as tr using(id_trip)
+            inner join marshrut_confs as mc using(id_marshrut)
+        where 
+            tko.id_passenger = _id_passenger and tko.`status` = 1 and mc.id_train = _id_train
+    )) then 
+        /* set _message = concat('Поездок пассажира id=', ifnull(_id_passenger, "NULL"), ' на поезде id=', ifnull(_id_train, "NULL"), ' не существует'); */
+        signal sqlstate value 'HY000' 
+        set MYSQL_ERRNO = 5006, MESSAGE_TEXT = 'Поездок пассажира на данном поезде не существует';
+    end if;
+    
+    if (_rate not between 1 and 10) then
+        signal sqlstate value 'HY000' 
+        set MYSQL_ERRNO = 5007, MESSAGE_TEXT = 'Значение данного рейтинга не входит в диапазон 10-бальной шкалы';
+    end if;
+    
+    /* Создаём запись о новом комментарии */
+    insert into comments (id_passenger, id_train, comment_text, rate) 
+    values (_id_passenger, _id_train, _comment, _rate);
+    
+    set _id_comment = last_insert_id();
+    
+    /* Вычисляем текущий рейтинг указанного поезда и обновляем его */
+    select avg(rate)
+    from comments 
+    where id_train = _id_train
+    into _train_rating;
+    
+    update train
+    set rating = _train_rating
+    where id_train = _id_train;
+    
+    COMMIT;
+    
+    set _status = 0;
+end
+;;
 
 delimiter ;
