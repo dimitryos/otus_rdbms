@@ -314,32 +314,6 @@ COMMENT='Конфигурация вагонов для заданного ти�
 ;
 
 
-CREATE TABLE `ticket_order` (
-  `id_ticket_order` int UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK, кадинальность порядка полутора сотен миллионов в год',
-  `ticket_number` CHAR(14) NULL DEFAULT NULL COMMENT 'Номер сформированного электронного билета',
-  `id_passenger` int UNSIGNED NOT NULL COMMENT 'FK, id пассажира',
-  `id_trip` int UNSIGNED NOT NULL COMMENT 'FK, id поездки из расписания',
-  `vagon_ord_num` TINYINT UNSIGNED NOT NULL COMMENT 'Номер вагона',
-  `seat_num` TINYINT UNSIGNED NOT NULL COMMENT 'Номер места в вагоне',
-  `id_trip_station_a` int UNSIGNED NOT NULL COMMENT 'Начальная станция',
-  `id_trip_station_b` int UNSIGNED NOT NULL COMMENT 'Конечная станция',
-  `price_itog` SMALLINT UNSIGNED NOT NULL COMMENT 'Итоговая начисленная сумма за билет',
-  `status` TINYINT not null default '0' COMMENT 'Статус заказа: 0 - ожидание оплаты, 1 - оплачен, -1 - ожидает возврата денег, -2 - деньги возвращены',
-  `order_dt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `return_dt` DATETIME NULL DEFAULT NULL COMMENT 'Дата и время возврата денег за билет',
-  `ticket_number_dt` DATETIME NULL DEFAULT NULL COMMENT 'Дата и время формирования электронного билета',
-  
-  PRIMARY KEY (`id_ticket_order`),
-  INDEX `fk_passenger_tko` (`id_passenger`),
-  INDEX `fk_trip_tko` (`id_trip`),
-  CONSTRAINT `fk_trip_tko` FOREIGN KEY (`id_trip`) REFERENCES `trip` (`id_trip`) ON UPDATE CASCADE,
-  CONSTRAINT `fk_passenger_tko` FOREIGN KEY (`id_passenger`) REFERENCES `passenger` (`id_passenger`) ON UPDATE CASCADE
-) 
-ENGINE=InnoDB
-COMMENT='Перечень заказов на билет'
-;
-
-
 CREATE TABLE `trip` (
   `id_trip` int UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'id поездки',
   `date` date NOT NULL COMMENT 'календарная дата начала движения по маршруту',
@@ -391,6 +365,31 @@ COMMENT='Текущий расклад по местам для всех пое�
 PARTITION BY HASH (id_trip)
 ;
 
+
+CREATE TABLE `ticket_order` (
+  `id_ticket_order` int UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK, кадинальность порядка полутора сотен миллионов в год',
+  `ticket_number` CHAR(14) NULL DEFAULT NULL COMMENT 'Номер сформированного электронного билета',
+  `id_passenger` int UNSIGNED NOT NULL COMMENT 'FK, id пассажира',
+  `id_trip` int UNSIGNED NOT NULL COMMENT 'FK, id поездки из расписания',
+  `vagon_ord_num` TINYINT UNSIGNED NOT NULL COMMENT 'Номер вагона',
+  `seat_num` TINYINT UNSIGNED NOT NULL COMMENT 'Номер места в вагоне',
+  `id_trip_station_a` int UNSIGNED NOT NULL COMMENT 'Начальная станция',
+  `id_trip_station_b` int UNSIGNED NOT NULL COMMENT 'Конечная станция',
+  `price_itog` SMALLINT UNSIGNED NOT NULL COMMENT 'Итоговая начисленная сумма за билет',
+  `status` TINYINT not null default '0' COMMENT 'Статус заказа: 0 - ожидание оплаты, 1 - оплачен, -1 - ожидает возврата денег, -2 - деньги возвращены',
+  `order_dt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `return_dt` DATETIME NULL DEFAULT NULL COMMENT 'Дата и время возврата денег за билет',
+  `ticket_number_dt` DATETIME NULL DEFAULT NULL COMMENT 'Дата и время формирования электронного билета',
+  
+  PRIMARY KEY (`id_ticket_order`),
+  INDEX `fk_passenger_tko` (`id_passenger`),
+  INDEX `fk_trip_tko` (`id_trip`),
+  CONSTRAINT `fk_trip_tko` FOREIGN KEY (`id_trip`) REFERENCES `trip` (`id_trip`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_passenger_tko` FOREIGN KEY (`id_passenger`) REFERENCES `passenger` (`id_passenger`) ON UPDATE CASCADE
+) 
+ENGINE=InnoDB
+COMMENT='Перечень заказов на билет'
+;
 
 CREATE TABLE `buh_balance` (
     `id_operation` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Первичный ключ (кардинальность может достигать порядка нескольких сотен миллионов в годов)',
