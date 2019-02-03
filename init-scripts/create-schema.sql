@@ -316,7 +316,7 @@ COMMENT='Конфигурация вагонов для заданного ти�
 
 CREATE TABLE `ticket_order` (
   `id_ticket_order` int UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK, кадинальность порядка полутора сотен миллионов в год',
-  `ticket_number` CHAR(14) NULL DEFAULT NULL COMMENT 'Номер сформированного электронного билета'
+  `ticket_number` CHAR(14) NULL DEFAULT NULL COMMENT 'Номер сформированного электронного билета',
   `id_passenger` int UNSIGNED NOT NULL COMMENT 'FK, id пассажира',
   `id_trip` int UNSIGNED NOT NULL COMMENT 'FK, id поездки из расписания',
   `vagon_ord_num` TINYINT UNSIGNED NOT NULL COMMENT 'Номер вагона',
@@ -332,7 +332,7 @@ CREATE TABLE `ticket_order` (
   PRIMARY KEY (`id_ticket_order`),
   INDEX `fk_passenger_tko` (`id_passenger`),
   INDEX `fk_trip_tko` (`id_trip`),
-  CONSTRAINT `fk_trip_tko` FOREIGN KEY (`id_trip`) REFERENCES `trip` (`id_trip`) ON UPDATE CASCADE
+  CONSTRAINT `fk_trip_tko` FOREIGN KEY (`id_trip`) REFERENCES `trip` (`id_trip`) ON UPDATE CASCADE,
   CONSTRAINT `fk_passenger_tko` FOREIGN KEY (`id_passenger`) REFERENCES `passenger` (`id_passenger`) ON UPDATE CASCADE
 ) 
 ENGINE=InnoDB
