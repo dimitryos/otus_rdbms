@@ -20,7 +20,7 @@ FROM
   INNER JOIN marshrut USING(id_marshrut)
   INNER JOIN station USING(id_station)
 WHERE 
-  id_trip = 458
+  id_trip = 482
 ORDER BY 
   order_number
 ;
@@ -124,7 +124,7 @@ GROUP BY
 
 
 
-set @_id_trip := 458;
+set @_id_trip := 482;
 select id_marshrut from trip where id_trip = @_id_trip into @_id_marshrut;
 /* Запрос №3.
  * Получение списка нижнего порога цен на проезд от А до станции Б для заданной поездки по каждой присутствующей в данном составе категории вагона 
