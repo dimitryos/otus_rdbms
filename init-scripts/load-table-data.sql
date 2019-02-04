@@ -68,17 +68,33 @@ LINES TERMINATED BY '\n'
 ;
 
 
-LOAD DATA INFILE '/var/lib/mysql-files/marshrut.txt' 
-INTO TABLE marshrut 
+LOAD DATA INFILE '/var/lib/mysql-files/sostav_type.txt' 
+INTO TABLE sostav_type 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+(id_sostav_type, sostav_name, description)
+;
+
+
+LOAD DATA INFILE '/var/lib/mysql-files/sostav_conf.txt' 
+INTO TABLE sostav_conf 
 COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 ;
+
 
 LOAD DATA INFILE '/var/lib/mysql-files/marshrut_names.txt' 
 INTO TABLE marshrut_names 
 COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 ;
+
+LOAD DATA INFILE '/var/lib/mysql-files/marshrut.txt' 
+INTO TABLE marshrut 
+COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+;
+
 
 LOAD DATA INFILE '/var/lib/mysql-files/passenger.txt' 
 INTO TABLE passenger 
@@ -92,17 +108,6 @@ COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 ;
 
-LOAD DATA INFILE '/var/lib/mysql-files/sostav_conf.txt' 
-INTO TABLE sostav_conf 
-COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n'
-;
-
-LOAD DATA INFILE '/var/lib/mysql-files/sostav_type.txt' 
-INTO TABLE sostav_type 
-COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n'
-;
 
 LOAD DATA INFILE '/var/lib/mysql-files/trip.txt' 
 INTO TABLE trip 
