@@ -320,7 +320,7 @@ CREATE PROCEDURE place_ticket_order (
     OUT _status SMALLINT,
     OUT _message VARCHAR(10000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci 
 )
-READS SQL DATA
+MODIFIES SQL DATA
 COMMENT 'Размещение заказа на билет на проезд по заданному маршруту'
 BEGIN
     /* Разница в сутках между датой отправления поезда и датой размещения заказа */
@@ -500,14 +500,58 @@ BEGIN
 END
 ;;
 
-/* Триггер внесения записи о финансовой операции, связанной с оплатой или возвратом денежных средств по заказу на билет */
-DROP TRIGGER if EXISTS `tko_status_au`;
 
-CREATE TRIGGER `tko_status_au`
-AFTER UPDATE ON `ticket_order`
+DROP PROCEDURE if EXISTS place_ticket_return_request;
+
+CREATE PROCEDURE place_ticket_return_request (
+    in _id_ticket_order int unsigned,
+    out _status smallint,
+    out _message varchar(10000)
+)
+MODIFIES SQL DATA
+COMMENT 'Разместить запрос на возврат билета по заказу _id_ticket_order'
+BEGIN
+    declare _id_trip int unsigned;
+    
+    declare exit handler for sqlexception  
+    begin   
+        rollback;
+        get stacked diagnostics condition  1 _status = MYSQL_ERRNO, _message = MESSAGE_TEXT;
+    end;
+    
+    START TRANSACTION;
+    
+    select id_trip 
+    from ticket_order 
+    where id_ticket_order = _id_ticket_order
+    into _id_trip;
+    
+    /* Проставляем статус «ожидает возврата денег»*/
+    update ticket_order
+    set `status` = -1, `return_dt` = current_timestamp
+    where id_ticket_order = _id_ticket_order;
+    
+    /* Освобождаем место, соответствующее данному заказу */
+    update trip_seats
+    set id_ticket_order = null
+    where id_trip = _id_trip and id_ticket_order = _id_ticket_order
+    ;
+    
+    COMMIT;
+    
+    set _status = 0;
+END
+;;
+
+
+/* Триггер внесения записи о финансовой операции, связанной с оплатой или возвратом денежных средств по заказу на билет */
+DROP TRIGGER if EXISTS `tko_status_bu`;
+
+CREATE TRIGGER `tko_status_bu`
+BEFORE UPDATE ON `ticket_order`
 FOR EACH ROW 
 BEGIN
-    /* Время отправления поезда */
+     /* Время отправления поезда */
     DECLARE _departure_dt DATETIME;
     
     /* Разница в часах между датой отправления поезда и датой размещения заказа на возврат */
@@ -517,40 +561,35 @@ BEGIN
     DECLARE _return_summa_k DECIMAL(4,3);
     
     /* Если пришли деньги за билет */
-    if (NEW.`status` = 1) then
+    if (OLD.`status` != NEW.`status` and NEW.`status` = 1) then
         INSERT INTO buh_balance (id_ticket_order, summa) VALUES (NEW.id_ticket_order, NEW.price_itog);
     /* Если нужно вернуть деньги за билет */
-    ELSEIF (NEW.`status` = -2) then
+    ELSEIF (OLD.`status` != NEW.`status` and NEW.`status` = -2) then
         SELECT departure_dt
         FROM trip_schedule 
         WHERE id_trip = NEW.id_trip AND id_station = NEW.id_trip_station_a
         INTO _departure_dt;
         
-        SET _return_time_diff = HOUR(TIMEDIFF(_departure_dt, NEW.return_dt));
+        SET _return_time_diff = HOUR(TIMEDIFF(_departure_dt, OLD.return_dt));
         /* INSERT INTO debug VALUES(CONCAT('_return_time_diff: ', _return_time_diff)); */
         
         /* Рассчитываем коэффициент для возвращаемой пассажиру суммы в зависимости от момента подачи заявки на возврат билета и времени отправления поезда. 
            Суммы по возвратам заносятся со знаком минус. */
-        if (_return_time_diff > 8) then
+        IF (_return_time_diff > 8) THEN
             SET _return_summa_k = -1.0;
-        ELSEIF (_return_time_diff BETWEEN 3 AND 8) then
+        ELSEIF (_return_time_diff BETWEEN 3 AND 8) THEN
             SET _return_summa_k = -0.7;
-        ELSEIF (_return_time_diff BETWEEN -12 AND 2) then
+        ELSEIF (_return_time_diff BETWEEN -12 AND 2) THEN
            SET _return_summa_k = -0.5;
         ELSE 
            SET _return_summa_k = 0;
         END if;
         
-        /* Вставляем соответствующую запись, применяя коэффициент перерасчёта */
+        /* вставляем соответствующую запись, применяя коэффициент перерасчёта */
         INSERT INTO buh_balance 
         (id_ticket_order, summa) 
         VALUES 
         (NEW.id_ticket_order, round(NEW.price_itog * _return_summa_k));
-        
-        /* Освобождаем место, соответствующее данному заказу */
-        UPDATE trip_seats
-        SET id_ticket_order = NULL
-        WHERE id_trip = NEW.id_trip AND id_ticket_order = NEW.id_ticket_order;
     END if;
 END
 ;;
