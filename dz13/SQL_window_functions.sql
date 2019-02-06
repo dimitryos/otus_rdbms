@@ -95,9 +95,9 @@ GROUP BY
 
 SELECT DISTINCT 
     a.actor_id, 
-    CONCAT(any_value(a.first_name), ' ', any_value(a.last_name)) AS actor_name,
+    CONCAT(a.first_name, ' ', a.last_name) AS actor_name,
     fa.film_id, 
-    ANY_VALUE(f.title) AS film_title,
+    f.title,
     MAX(r.rental_date) OVER(PARTITION BY a.actor_id, fa.film_id) AS last_rental_date
 FROM 
     actor AS a
