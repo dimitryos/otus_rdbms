@@ -19,9 +19,7 @@ CREATE TABLE `trip_seats` (
   `seat_num` TINYINT UNSIGNED NOT NULL,
   `gender_constraints` TINYINT UNSIGNED DEFAULT NULL,
   `gender_constraints_vc` TINYINT UNSIGNED DEFAULT NULL,
-  `id_ticket_order` int UNSIGNED DEFAULT NULL,
-  
-  INDEX `idx_trip_station_trs` (`id_trip`, `id_station`, `vagon_ord_num`)
+  `id_ticket_order` int UNSIGNED DEFAULT NULL
 ) 
 PARTITION BY HASH (`id_trip`) 
 PARTITIONS 50
@@ -33,3 +31,5 @@ COLUMNS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 (id_trip, id_station, vagon_ord_num, seat_num, coupe_num, gender_constraints_vc)
 ; 
+
+CREATE INDEX `idx_trip_station_trs` ON `trip_seats` (`id_trip`, `id_station`, `vagon_ord_num`) USING BTREE;
